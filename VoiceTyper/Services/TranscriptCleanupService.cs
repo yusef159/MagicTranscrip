@@ -1,0 +1,58 @@
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
+
+namespace VoiceTyper.Services;
+
+public class TranscriptCleanupService
+{
+    private const string ChatUrl = "https://api.openai.com/v1/chat/completions";
+
+    private const string SystemPrompt =
+        "You are cleaning up dictated text. " +
+        "Fix punctuation, capitalization, and obvious speech recognition mistakes. " +
+        "Do not change the meaning. " +
+        "Return only the corrected text.";
+
+    private readonly HttpClient _http = new()
+    {
+        Timeout = TimeSpan.FromSeconds(30)
+    };
+
+    public async Task<string> CleanupAsync(string rawText)
+    {
+        var apiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY")
+            ?? throw new InvalidOperationException("OPENAI_API_KEY environment variable is not set.");
+
+        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+
+        var payload = new
+        {
+            model = "gpt-4o-mini",
+            messages = new object[]
+            {
+                new { role = "system", content = SystemPrompt },
+                new { role = "user", content = rawText }
+            },
+            temperature = 0.3
+        };
+
+        var json = JsonSerializer.Serialize(payload);
+        var requestContent = new StringContent(json, Encoding.UTF8, "application/json");
+
+        var response = await _http.PostAsync(ChatUrl, requestContent);
+        var body = await response.Content.ReadAsStringAsync();
+
+        if (!response.IsSuccessStatusCode)
+            throw new HttpRequestException($"Cleanup API returned {(int)response.StatusCode}: {body}");
+
+        using var doc = JsonDocument.Parse(body);
+        return doc.RootElement
+            .GetProperty("choices")[0]
+            .GetProperty("message")
+            .GetProperty("content")
+            .GetString()?.Trim()
+            ?? rawText;
+    }
+}

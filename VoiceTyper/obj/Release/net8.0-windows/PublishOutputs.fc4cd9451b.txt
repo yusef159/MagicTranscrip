@@ -1,0 +1,12 @@
+C:\Tools\VoiceTyper\VoiceTyper.exe
+C:\Tools\VoiceTyper\VoiceTyper.dll
+C:\Tools\VoiceTyper\VoiceTyper.deps.json
+C:\Tools\VoiceTyper\VoiceTyper.runtimeconfig.json
+C:\Tools\VoiceTyper\VoiceTyper.pdb
+C:\Tools\VoiceTyper\NAudio.dll
+C:\Tools\VoiceTyper\NAudio.Asio.dll
+C:\Tools\VoiceTyper\NAudio.Core.dll
+C:\Tools\VoiceTyper\NAudio.Midi.dll
+C:\Tools\VoiceTyper\NAudio.Wasapi.dll
+C:\Tools\VoiceTyper\NAudio.WinForms.dll
+C:\Tools\VoiceTyper\NAudio.WinMM.dll
