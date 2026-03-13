@@ -1,6 +1,7 @@
 using System.Net.Http;
 using System.Windows;
 using System.Windows.Forms;
+using System.Media;
 using VoiceTyper.Models;
 using VoiceTyper.Services;
 using Application = System.Windows.Application;
@@ -54,6 +55,31 @@ public partial class App : Application
         }
     }
 
+    private static void PlayStartBeep()
+    {
+        PlayClickSound();
+    }
+
+    private static void PlayStopBeep()
+    {
+        PlayClickSound();
+    }
+
+    private static void PlayClickSound()
+    {
+        try
+        {
+            var baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            var path = System.IO.Path.Combine(baseDir, "click.wav");
+            using var player = new SoundPlayer(path);
+            player.Play();
+        }
+        catch
+        {
+            SystemSounds.Beep.Play();
+        }
+    }
+
     private void OnRecordingStarted()
     {
         Console.WriteLine("[VoiceTyper] OnRecordingStarted fired");
@@ -75,6 +101,7 @@ public partial class App : Application
             }
 
             _audioRecorder.StartRecording();
+            PlayStartBeep();
             Console.WriteLine("[VoiceTyper] Recording started");
             Dispatcher.Invoke(() => _trayIcon.SetRecording(true));
         }
@@ -95,6 +122,8 @@ public partial class App : Application
             return;
         }
         _processing = true;
+
+        PlayStopBeep();
 
         string? filePath = null;
         try
@@ -136,6 +165,14 @@ public partial class App : Application
                 Dispatcher.Invoke(() => _trayIcon.SetStatus("VoiceTyper - Cleaning up..."));
                 transcript = await _cleanupService.CleanupAsync(transcript);
                 Console.WriteLine($"[VoiceTyper] Cleaned up: \"{transcript}\"");
+            }
+
+            if (_settings.EnableProfessionalRewrite)
+            {
+                Console.WriteLine("[VoiceTyper] Rewriting transcript professionally...");
+                Dispatcher.Invoke(() => _trayIcon.SetStatus("VoiceTyper - Rewriting..."));
+                transcript = await _cleanupService.RewriteProfessionalAsync(transcript);
+                Console.WriteLine($"[VoiceTyper] Professionally rewritten: \"{transcript}\"");
             }
 
             if (_settings.AutoPaste)

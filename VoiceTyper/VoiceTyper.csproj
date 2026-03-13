@@ -18,4 +18,10 @@
     <Resource Include="Resources\mic.ico" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="click.wav">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
 </Project>

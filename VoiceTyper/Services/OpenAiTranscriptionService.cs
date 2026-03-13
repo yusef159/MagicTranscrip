@@ -28,7 +28,7 @@ public class OpenAiTranscriptionService
         var fileContent = new ByteArrayContent(audioBytes);
         fileContent.Headers.ContentType = new MediaTypeHeaderValue("audio/wav");
         content.Add(fileContent, "file", "audio.wav");
-        content.Add(new StringContent("gpt-4o-transcribe"), "model");
+        content.Add(new StringContent("gpt-4o-mini-transcribe"), "model");
 
         if (!string.IsNullOrWhiteSpace(LanguageHint))
             content.Add(new StringContent(LanguageHint), "language");

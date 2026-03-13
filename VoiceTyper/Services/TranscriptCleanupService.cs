@@ -15,12 +15,28 @@ public class TranscriptCleanupService
         "Do not change the meaning. " +
         "Return only the corrected text.";
 
+    private const string ProfessionalRewriteSystemPrompt =
+        "You rewrite dictated text into a professional, polished version. " +
+        "Keep the original intent and key facts. " +
+        "Improve clarity, tone, grammar, and structure without adding new information. " +
+        "Return only the rewritten text.";
+
     private readonly HttpClient _http = new()
     {
         Timeout = TimeSpan.FromSeconds(30)
     };
 
     public async Task<string> CleanupAsync(string rawText)
+    {
+        return await RewriteWithPromptAsync(rawText, SystemPrompt);
+    }
+
+    public async Task<string> RewriteProfessionalAsync(string rawText)
+    {
+        return await RewriteWithPromptAsync(rawText, ProfessionalRewriteSystemPrompt);
+    }
+
+    private async Task<string> RewriteWithPromptAsync(string rawText, string systemPrompt)
     {
         var apiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY")
             ?? throw new InvalidOperationException("OPENAI_API_KEY environment variable is not set.");
@@ -32,7 +48,7 @@ public class TranscriptCleanupService
             model = "gpt-4o-mini",
             messages = new object[]
             {
-                new { role = "system", content = SystemPrompt },
+                new { role = "system", content = systemPrompt },
                 new { role = "user", content = rawText }
             },
             temperature = 0.3
@@ -45,7 +61,7 @@ public class TranscriptCleanupService
         var body = await response.Content.ReadAsStringAsync();
 
         if (!response.IsSuccessStatusCode)
-            throw new HttpRequestException($"Cleanup API returned {(int)response.StatusCode}: {body}");
+            throw new HttpRequestException($"Rewrite API returned {(int)response.StatusCode}: {body}");
 
         using var doc = JsonDocument.Parse(body);
         return doc.RootElement

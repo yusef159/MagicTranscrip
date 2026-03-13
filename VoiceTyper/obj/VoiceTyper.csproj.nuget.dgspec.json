@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "c:\\Users\\yusef\\Documents\\MagicTranscript\\VoiceTyper\\VoiceTyper.csproj": {}
+    "C:\\Users\\yusef\\Documents\\MagicTranscript\\VoiceTyper\\VoiceTyper.csproj": {}
   },
   "projects": {
-    "c:\\Users\\yusef\\Documents\\MagicTranscript\\VoiceTyper\\VoiceTyper.csproj": {
+    "C:\\Users\\yusef\\Documents\\MagicTranscript\\VoiceTyper\\VoiceTyper.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "c:\\Users\\yusef\\Documents\\MagicTranscript\\VoiceTyper\\VoiceTyper.csproj",
+        "projectUniqueName": "C:\\Users\\yusef\\Documents\\MagicTranscript\\VoiceTyper\\VoiceTyper.csproj",
         "projectName": "VoiceTyper",
-        "projectPath": "c:\\Users\\yusef\\Documents\\MagicTranscript\\VoiceTyper\\VoiceTyper.csproj",
+        "projectPath": "C:\\Users\\yusef\\Documents\\MagicTranscript\\VoiceTyper\\VoiceTyper.csproj",
         "packagesPath": "C:\\Users\\yusef\\.nuget\\packages\\",
-        "outputPath": "c:\\Users\\yusef\\Documents\\MagicTranscript\\VoiceTyper\\obj\\",
+        "outputPath": "C:\\Users\\yusef\\Documents\\MagicTranscript\\VoiceTyper\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\yusef\\AppData\\Roaming\\NuGet\\NuGet.Config"

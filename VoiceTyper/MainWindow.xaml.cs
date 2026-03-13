@@ -39,6 +39,7 @@ public partial class MainWindow : Window
         LanguageBox.Text = _settings.LanguageHint;
         CleanupCheck.IsChecked = _settings.EnableCleanup;
         AutoPasteCheck.IsChecked = _settings.AutoPaste;
+        ProfessionalRewriteCheck.IsChecked = _settings.EnableProfessionalRewrite;
     }
 
     private void HotkeyBox_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
@@ -86,6 +87,7 @@ public partial class MainWindow : Window
         _settings.LanguageHint = LanguageBox.Text.Trim();
         _settings.EnableCleanup = CleanupCheck.IsChecked == true;
         _settings.AutoPaste = AutoPasteCheck.IsChecked == true;
+        _settings.EnableProfessionalRewrite = ProfessionalRewriteCheck.IsChecked == true;
 
         _settingsService.Save(_settings);
         SettingsSaved?.Invoke(_settings);

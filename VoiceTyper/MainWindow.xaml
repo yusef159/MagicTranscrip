@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="VoiceTyper Settings"
-        Height="400" Width="440"
+        Height="450" Width="440"
         ResizeMode="NoResize"
         WindowStartupLocation="CenterScreen"
         ShowInTaskbar="False">
@@ -28,6 +28,7 @@
 
     <Grid Margin="20">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -68,7 +69,10 @@
         <CheckBox Grid.Row="5" x:Name="AutoPasteCheck"
                   Content="Auto-paste into active window"/>
 
-        <StackPanel Grid.Row="8" Orientation="Horizontal"
+        <CheckBox Grid.Row="6" x:Name="ProfessionalRewriteCheck"
+                  Content="Rewrite into a more professional, polished version (AI)"/>
+
+        <StackPanel Grid.Row="9" Orientation="Horizontal"
                     HorizontalAlignment="Right" Margin="0,16,0,0">
             <Button Content="Save" Width="90" Height="32"
                     Click="Save_Click" IsDefault="True" Margin="0,0,8,0"/>

@@ -1,3 +1,4 @@
+C:\Tools\VoiceTyper\click.wav
 C:\Tools\VoiceTyper\VoiceTyper.exe
 C:\Tools\VoiceTyper\VoiceTyper.dll
 C:\Tools\VoiceTyper\VoiceTyper.deps.json
