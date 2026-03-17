@@ -16,9 +16,9 @@ public class TranscriptCleanupService
         "Return only the corrected text.";
 
     private const string ProfessionalRewriteSystemPrompt =
-        "You rewrite dictated text into a professional, polished version. " +
+        "rewrite dictated text into a professional version. " +
         "Keep the original intent and key facts. " +
-        "Improve clarity, tone, grammar, and structure without adding new information. " +
+        "Improve clarity, tone, grammar without adding new information. " +
         "Return only the rewritten text.";
 
     private readonly HttpClient _http = new()
