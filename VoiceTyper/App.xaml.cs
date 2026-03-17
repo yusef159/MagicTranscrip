@@ -20,6 +20,7 @@ public partial class App : Application
     private TrayIconService _trayIcon = null!;
     private MainWindow _settingsWindow = null!;
     private bool _processing;
+    private TranscriptMode _currentTranscriptMode = TranscriptMode.Normal;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -42,7 +43,11 @@ public partial class App : Application
         _settingsWindow.SettingsSaved += OnSettingsSaved;
 
         _hotkeyService = new HotkeyService();
-        _hotkeyService.UpdateHotkey(_settings.HotkeyModifiers, _settings.HotkeyKey);
+        _hotkeyService.UpdateHotkeys(
+            _settings.HotkeyModifiers,
+            _settings.HotkeyKey,
+            _settings.ProfessionalHotkeyModifiers,
+            _settings.ProfessionalHotkeyKey);
         _hotkeyService.Enabled = _settings.DictationEnabled;
         _hotkeyService.RecordingStarted += OnRecordingStarted;
         _hotkeyService.RecordingStopped += OnRecordingStopped;
@@ -80,14 +85,16 @@ public partial class App : Application
         }
     }
 
-    private void OnRecordingStarted()
+    private void OnRecordingStarted(TranscriptMode mode)
     {
-        Console.WriteLine("[VoiceTyper] OnRecordingStarted fired");
+        Console.WriteLine($"[VoiceTyper] OnRecordingStarted fired ({mode})");
         if (_processing)
         {
             Console.WriteLine("[VoiceTyper] Skipped — still processing previous recording");
             return;
         }
+
+        _currentTranscriptMode = mode;
 
         try
         {
@@ -113,15 +120,16 @@ public partial class App : Application
         }
     }
 
-    private async void OnRecordingStopped()
+    private async void OnRecordingStopped(TranscriptMode mode)
     {
-        Console.WriteLine("[VoiceTyper] OnRecordingStopped fired");
+        Console.WriteLine($"[VoiceTyper] OnRecordingStopped fired ({mode})");
         if (_processing)
         {
             Console.WriteLine("[VoiceTyper] Skipped — still processing");
             return;
         }
         _processing = true;
+        _currentTranscriptMode = mode;
 
         PlayStopBeep();
 
@@ -167,7 +175,7 @@ public partial class App : Application
                 Console.WriteLine($"[VoiceTyper] Cleaned up: \"{transcript}\"");
             }
 
-            if (_settings.EnableProfessionalRewrite)
+            if (_currentTranscriptMode == TranscriptMode.Professional)
             {
                 Console.WriteLine("[VoiceTyper] Rewriting transcript professionally...");
                 Dispatcher.Invoke(() => _trayIcon.SetStatus("VoiceTyper - Rewriting..."));
@@ -218,7 +226,11 @@ public partial class App : Application
     private void OnSettingsSaved(AppSettings settings)
     {
         _settings = settings;
-        _hotkeyService.UpdateHotkey(settings.HotkeyModifiers, settings.HotkeyKey);
+        _hotkeyService.UpdateHotkeys(
+            settings.HotkeyModifiers,
+            settings.HotkeyKey,
+            settings.ProfessionalHotkeyModifiers,
+            settings.ProfessionalHotkeyKey);
         _hotkeyService.Enabled = settings.DictationEnabled;
         _audioRecorder.DeviceNumber = settings.MicrophoneDeviceIndex;
         _transcriptionService.LanguageHint = settings.LanguageHint;

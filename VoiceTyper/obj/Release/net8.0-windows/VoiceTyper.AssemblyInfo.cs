@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("VoiceTyper")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+d57405a95d6bae170e4a32c28f8b746a132db9fb")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+73fcc6e93b46e2855e52dd994696d490be9359db")]
 [assembly: System.Reflection.AssemblyProductAttribute("VoiceTyper")]
 [assembly: System.Reflection.AssemblyTitleAttribute("VoiceTyper")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

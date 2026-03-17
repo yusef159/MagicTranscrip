@@ -23,9 +23,9 @@ public class OpenAiTranscriptionService
 
         _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
 
+        await using var audioStream = File.OpenRead(audioFilePath);
         using var content = new MultipartFormDataContent();
-        var audioBytes = await File.ReadAllBytesAsync(audioFilePath);
-        var fileContent = new ByteArrayContent(audioBytes);
+        using var fileContent = new StreamContent(audioStream);
         fileContent.Headers.ContentType = new MediaTypeHeaderValue("audio/wav");
         content.Add(fileContent, "file", "audio.wav");
         content.Add(new StringContent("gpt-4o-mini-transcribe"), "model");
@@ -33,13 +33,20 @@ public class OpenAiTranscriptionService
         if (!string.IsNullOrWhiteSpace(LanguageHint))
             content.Add(new StringContent(LanguageHint), "language");
 
-        var response = await _http.PostAsync(TranscriptionUrl, content);
-        var body = await response.Content.ReadAsStringAsync();
+        using var request = new HttpRequestMessage(HttpMethod.Post, TranscriptionUrl)
+        {
+            Content = content
+        };
+        using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
 
         if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync();
             throw new HttpRequestException($"Transcription API returned {(int)response.StatusCode}: {body}");
+        }
 
-        using var doc = JsonDocument.Parse(body);
+        await using var responseStream = await response.Content.ReadAsStreamAsync();
+        using var doc = await JsonDocument.ParseAsync(responseStream);
         return doc.RootElement.GetProperty("text").GetString()
             ?? throw new InvalidOperationException("Transcription returned empty text.");
     }

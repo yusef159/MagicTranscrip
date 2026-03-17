@@ -4,6 +4,12 @@ using System.Windows.Input;
 
 namespace VoiceTyper.Services;
 
+public enum TranscriptMode
+{
+    Normal,
+    Professional
+}
+
 public class HotkeyService : IDisposable
 {
     private const int WH_KEYBOARD_LL = 13;
@@ -15,13 +21,17 @@ public class HotkeyService : IDisposable
     private IntPtr _hookId = IntPtr.Zero;
     private readonly LowLevelKeyboardProc _hookProc;
     private bool _isRecording;
+    private TranscriptMode _activeMode = TranscriptMode.Normal;
+    private Key _activeTriggerKey = Key.None;
 
     public Key TriggerKey { get; set; } = Key.Space;
     public ModifierKeys Modifiers { get; set; } = ModifierKeys.Control | ModifierKeys.Alt;
+    public Key ProfessionalTriggerKey { get; set; } = Key.P;
+    public ModifierKeys ProfessionalModifiers { get; set; } = ModifierKeys.Control | ModifierKeys.Alt;
     public bool Enabled { get; set; } = true;
 
-    public event Action? RecordingStarted;
-    public event Action? RecordingStopped;
+    public event Action<TranscriptMode>? RecordingStarted;
+    public event Action<TranscriptMode>? RecordingStopped;
 
     public HotkeyService()
     {
@@ -30,17 +40,12 @@ public class HotkeyService : IDisposable
         Console.WriteLine($"[HotkeyService] Hook installed: 0x{_hookId:X}");
     }
 
-    public void UpdateHotkey(string modifiers, string key)
+    public void UpdateHotkeys(string modifiers, string key, string professionalModifiers, string professionalKey)
     {
-        Modifiers = ModifierKeys.None;
-        foreach (var mod in modifiers.Split('+', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-        {
-            if (Enum.TryParse<ModifierKeys>(mod, true, out var parsed))
-                Modifiers |= parsed;
-        }
-
-        if (Enum.TryParse<Key>(key, true, out var parsedKey))
-            TriggerKey = parsedKey;
+        Modifiers = ParseModifiers(modifiers);
+        TriggerKey = ParseKey(key, TriggerKey);
+        ProfessionalModifiers = ParseModifiers(professionalModifiers);
+        ProfessionalTriggerKey = ParseKey(professionalKey, ProfessionalTriggerKey);
     }
 
     private IntPtr SetHook(LowLevelKeyboardProc proc)
@@ -60,24 +65,29 @@ public class HotkeyService : IDisposable
             bool isKeyDown = msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN;
             bool isKeyUp = msg == WM_KEYUP || msg == WM_SYSKEYUP;
 
-            // START: trigger key pressed with correct modifiers held
-            if (isKeyDown && !_isRecording && key == TriggerKey && AreModifiersPressed())
+            if (isKeyDown && !_isRecording && TryResolveMode(key, out var mode))
             {
                 _isRecording = true;
-                Console.WriteLine("[HotkeyService] >>> Recording STARTED");
-                Task.Run(() => RecordingStarted?.Invoke());
+                _activeMode = mode;
+                _activeTriggerKey = key;
+                Console.WriteLine($"[HotkeyService] >>> Recording STARTED ({mode})");
+                Task.Run(() => RecordingStarted?.Invoke(mode));
                 return (IntPtr)1;
             }
 
             // STOP: any key released while recording (trigger key OR any modifier)
             if (isKeyUp && _isRecording)
             {
-                if (key == TriggerKey || IsModifierKey(key))
+                if (key == _activeTriggerKey || IsModifierKey(key))
                 {
                     _isRecording = false;
-                    Console.WriteLine($"[HotkeyService] <<< Recording STOPPED (released: {key})");
-                    Task.Run(() => RecordingStopped?.Invoke());
-                    if (key == TriggerKey)
+                    var activeMode = _activeMode;
+                    _activeMode = TranscriptMode.Normal;
+                    var activeTriggerKey = _activeTriggerKey;
+                    _activeTriggerKey = Key.None;
+                    Console.WriteLine($"[HotkeyService] <<< Recording STOPPED (released: {key}, mode: {activeMode})");
+                    Task.Run(() => RecordingStopped?.Invoke(activeMode));
+                    if (key == activeTriggerKey)
                         return (IntPtr)1;
                 }
             }
@@ -86,25 +96,63 @@ public class HotkeyService : IDisposable
         return CallNextHookEx(_hookId, nCode, wParam, lParam);
     }
 
-    private bool AreModifiersPressed()
+    private bool TryResolveMode(Key key, out TranscriptMode mode)
     {
-        if (Modifiers.HasFlag(ModifierKeys.Control) &&
+        if (key == TriggerKey && AreModifiersPressed(Modifiers))
+        {
+            mode = TranscriptMode.Normal;
+            return true;
+        }
+
+        if (key == ProfessionalTriggerKey && AreModifiersPressed(ProfessionalModifiers))
+        {
+            mode = TranscriptMode.Professional;
+            return true;
+        }
+
+        mode = TranscriptMode.Normal;
+        return false;
+    }
+
+    private bool AreModifiersPressed(ModifierKeys requiredModifiers)
+    {
+        if (requiredModifiers.HasFlag(ModifierKeys.Control) &&
             !IsKeyDown(0x11))
             return false;
 
-        if (Modifiers.HasFlag(ModifierKeys.Alt) &&
+        if (requiredModifiers.HasFlag(ModifierKeys.Alt) &&
             !IsKeyDown(0x12))
             return false;
 
-        if (Modifiers.HasFlag(ModifierKeys.Shift) &&
+        if (requiredModifiers.HasFlag(ModifierKeys.Shift) &&
             !IsKeyDown(0x10))
             return false;
 
-        if (Modifiers.HasFlag(ModifierKeys.Windows) &&
+        if (requiredModifiers.HasFlag(ModifierKeys.Windows) &&
             !IsKeyDown(0x5B) && !IsKeyDown(0x5C))
             return false;
 
         return true;
+    }
+
+    private static ModifierKeys ParseModifiers(string modifiers)
+    {
+        var parsedModifiers = ModifierKeys.None;
+        foreach (var mod in modifiers.Split('+', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (Enum.TryParse<ModifierKeys>(mod, true, out var parsed))
+                parsedModifiers |= parsed;
+        }
+
+        return parsedModifiers;
+    }
+
+    private static Key ParseKey(string key, Key fallback)
+    {
+        if (Enum.TryParse<Key>(key, true, out var parsedKey))
+            return parsedKey;
+
+        return fallback;
     }
 
     private static bool IsModifierKey(Key key) =>

@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Input;
 using VoiceTyper.Models;
 using VoiceTyper.Services;
+using KeyEventArgs = System.Windows.Input.KeyEventArgs;
 
 namespace VoiceTyper;
 
@@ -9,8 +10,10 @@ public partial class MainWindow : Window
 {
     private readonly SettingsService _settingsService;
     private AppSettings _settings;
-    private string _capturedModifiers = "";
-    private string _capturedKey = "";
+    private string _capturedTranscriptModifiers = "";
+    private string _capturedTranscriptKey = "";
+    private string _capturedProfessionalModifiers = "";
+    private string _capturedProfessionalKey = "";
 
     public event Action<AppSettings>? SettingsSaved;
 
@@ -24,9 +27,13 @@ public partial class MainWindow : Window
 
     private void LoadIntoUi()
     {
-        _capturedModifiers = _settings.HotkeyModifiers;
-        _capturedKey = _settings.HotkeyKey;
-        HotkeyBox.Text = FormatHotkey(_capturedModifiers, _capturedKey);
+        _capturedTranscriptModifiers = _settings.HotkeyModifiers;
+        _capturedTranscriptKey = _settings.HotkeyKey;
+        TranscriptHotkeyBox.Text = FormatHotkey(_capturedTranscriptModifiers, _capturedTranscriptKey);
+
+        _capturedProfessionalModifiers = _settings.ProfessionalHotkeyModifiers;
+        _capturedProfessionalKey = _settings.ProfessionalHotkeyKey;
+        ProfessionalHotkeyBox.Text = FormatHotkey(_capturedProfessionalModifiers, _capturedProfessionalKey);
 
         var devices = AudioRecorderService.GetMicrophoneDevices();
         MicrophoneCombo.Items.Clear();
@@ -37,12 +44,32 @@ public partial class MainWindow : Window
             MicrophoneCombo.SelectedIndex = Math.Min(_settings.MicrophoneDeviceIndex, devices.Count - 1);
 
         LanguageBox.Text = _settings.LanguageHint;
-        CleanupCheck.IsChecked = _settings.EnableCleanup;
         AutoPasteCheck.IsChecked = _settings.AutoPaste;
-        ProfessionalRewriteCheck.IsChecked = _settings.EnableProfessionalRewrite;
     }
 
-    private void HotkeyBox_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    private void TranscriptHotkeyBox_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        CaptureHotkey(
+            e,
+            value => _capturedTranscriptModifiers = value,
+            value => _capturedTranscriptKey = value,
+            TranscriptHotkeyBox);
+    }
+
+    private void ProfessionalHotkeyBox_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        CaptureHotkey(
+            e,
+            value => _capturedProfessionalModifiers = value,
+            value => _capturedProfessionalKey = value,
+            ProfessionalHotkeyBox);
+    }
+
+    private static void CaptureHotkey(
+        KeyEventArgs e,
+        Action<string> setModifiers,
+        Action<string> setKey,
+        System.Windows.Controls.TextBox targetBox)
     {
         e.Handled = true;
 
@@ -58,20 +85,33 @@ public partial class MainWindow : Window
         if (Keyboard.Modifiers.HasFlag(ModifierKeys.Shift)) mods.Add("Shift");
         if (Keyboard.Modifiers.HasFlag(ModifierKeys.Windows)) mods.Add("Windows");
 
-        _capturedModifiers = string.Join("+", mods);
-        _capturedKey = key.ToString();
-        HotkeyBox.Text = FormatHotkey(_capturedModifiers, _capturedKey);
+        var modifiers = string.Join("+", mods);
+        var keyText = key.ToString();
+        setModifiers(modifiers);
+        setKey(keyText);
+        targetBox.Text = FormatHotkey(modifiers, keyText);
     }
 
-    private void HotkeyBox_GotFocus(object sender, RoutedEventArgs e)
+    private void TranscriptHotkeyBox_GotFocus(object sender, RoutedEventArgs e)
     {
-        HotkeyBox.Text = "Press a key combination...";
+        TranscriptHotkeyBox.Text = "Press a key combination...";
     }
 
-    private void HotkeyBox_LostFocus(object sender, RoutedEventArgs e)
+    private void TranscriptHotkeyBox_LostFocus(object sender, RoutedEventArgs e)
     {
-        if (HotkeyBox.Text == "Press a key combination...")
-            HotkeyBox.Text = FormatHotkey(_capturedModifiers, _capturedKey);
+        if (TranscriptHotkeyBox.Text == "Press a key combination...")
+            TranscriptHotkeyBox.Text = FormatHotkey(_capturedTranscriptModifiers, _capturedTranscriptKey);
+    }
+
+    private void ProfessionalHotkeyBox_GotFocus(object sender, RoutedEventArgs e)
+    {
+        ProfessionalHotkeyBox.Text = "Press a key combination...";
+    }
+
+    private void ProfessionalHotkeyBox_LostFocus(object sender, RoutedEventArgs e)
+    {
+        if (ProfessionalHotkeyBox.Text == "Press a key combination...")
+            ProfessionalHotkeyBox.Text = FormatHotkey(_capturedProfessionalModifiers, _capturedProfessionalKey);
     }
 
     private static string FormatHotkey(string modifiers, string key)
@@ -81,13 +121,13 @@ public partial class MainWindow : Window
 
     private void Save_Click(object sender, RoutedEventArgs e)
     {
-        _settings.HotkeyModifiers = _capturedModifiers;
-        _settings.HotkeyKey = _capturedKey;
+        _settings.HotkeyModifiers = _capturedTranscriptModifiers;
+        _settings.HotkeyKey = _capturedTranscriptKey;
+        _settings.ProfessionalHotkeyModifiers = _capturedProfessionalModifiers;
+        _settings.ProfessionalHotkeyKey = _capturedProfessionalKey;
         _settings.MicrophoneDeviceIndex = MicrophoneCombo.SelectedIndex >= 0 ? MicrophoneCombo.SelectedIndex : 0;
         _settings.LanguageHint = LanguageBox.Text.Trim();
-        _settings.EnableCleanup = CleanupCheck.IsChecked == true;
         _settings.AutoPaste = AutoPasteCheck.IsChecked == true;
-        _settings.EnableProfessionalRewrite = ProfessionalRewriteCheck.IsChecked == true;
 
         _settingsService.Save(_settings);
         SettingsSaved?.Invoke(_settings);
