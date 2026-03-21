@@ -1,4 +1,3 @@
-using System.IO;
 using NAudio.Wave;
 
 namespace VoiceTyper.Services;
@@ -6,10 +5,10 @@ namespace VoiceTyper.Services;
 public class AudioRecorderService : IDisposable
 {
     private WaveInEvent? _waveIn;
-    private WaveFileWriter? _writer;
-    private string? _tempFilePath;
+    private long _recordedBytes;
 
     public int DeviceNumber { get; set; }
+    public event Action<byte[]>? AudioChunkAvailable;
 
     public static List<string> GetMicrophoneDevices()
     {
@@ -24,65 +23,41 @@ public class AudioRecorderService : IDisposable
 
     public void StartRecording()
     {
-        _tempFilePath = Path.Combine(Path.GetTempPath(), $"voicetyper_{Guid.NewGuid():N}.wav");
-
         _waveIn = new WaveInEvent
         {
-            WaveFormat = new WaveFormat(16000, 16, 1),
+            // Realtime API audio/pcm expects 24kHz mono PCM16.
+            WaveFormat = new WaveFormat(24000, 16, 1),
             DeviceNumber = DeviceNumber,
             BufferMilliseconds = 50
         };
-
-        _writer = new WaveFileWriter(_tempFilePath, _waveIn.WaveFormat);
+        _recordedBytes = 0;
 
         _waveIn.DataAvailable += (_, e) =>
         {
-            _writer?.Write(e.Buffer, 0, e.BytesRecorded);
+            _recordedBytes += e.BytesRecorded;
+            var chunk = new byte[e.BytesRecorded];
+            Buffer.BlockCopy(e.Buffer, 0, chunk, 0, e.BytesRecorded);
+            AudioChunkAvailable?.Invoke(chunk);
         };
 
         _waveIn.StartRecording();
     }
 
-    /// <returns>Path to the recorded WAV file, or null if nothing was recorded.</returns>
-    public string? StopRecording()
+    public bool StopRecording()
     {
         _waveIn?.StopRecording();
         _waveIn?.Dispose();
         _waveIn = null;
 
-        _writer?.Flush();
-        var length = _writer?.Length ?? 0;
-        _writer?.Dispose();
-        _writer = null;
-
-        if (length <= 44) // WAV header only, no audio data
-        {
-            TryDeleteFile(_tempFilePath);
-            return null;
-        }
-
-        return _tempFilePath;
-    }
-
-    public static void CleanupFile(string? path)
-    {
-        TryDeleteFile(path);
-    }
-
-    private static void TryDeleteFile(string? path)
-    {
-        try
-        {
-            if (path != null && File.Exists(path))
-                File.Delete(path);
-        }
-        catch { }
+        // ~100ms of audio at 24kHz mono PCM16 is 4,800 bytes.
+        var hasAudio = _recordedBytes >= 4800;
+        _recordedBytes = 0;
+        return hasAudio;
     }
 
     public void Dispose()
     {
         _waveIn?.StopRecording();
         _waveIn?.Dispose();
-        _writer?.Dispose();
     }
 }

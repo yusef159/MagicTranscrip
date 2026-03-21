@@ -21,6 +21,8 @@ public partial class App : Application
     private MainWindow _settingsWindow = null!;
     private bool _processing;
     private TranscriptMode _currentTranscriptMode = TranscriptMode.Normal;
+    private readonly SemaphoreSlim _realtimeStartLock = new(1, 1);
+    private Task _realtimeWarmupTask = Task.CompletedTask;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -30,6 +32,7 @@ public partial class App : Application
         _settings = _settingsService.Load();
 
         _audioRecorder = new AudioRecorderService { DeviceNumber = _settings.MicrophoneDeviceIndex };
+        _audioRecorder.AudioChunkAvailable += OnAudioChunkAvailable;
         _transcriptionService = new OpenAiTranscriptionService { LanguageHint = _settings.LanguageHint };
         _cleanupService = new TranscriptCleanupService();
         _textInsertion = new TextInsertionService();
@@ -57,6 +60,11 @@ public partial class App : Application
             _trayIcon.ShowNotification("VoiceTyper",
                 "OPENAI_API_KEY environment variable is not set. Dictation will not work.",
                 ToolTipIcon.Warning);
+        }
+        else
+        {
+            // Warm a realtime session in the background so hotkey start is instant.
+            _ = EnsureRealtimeSessionStartedAsync();
         }
     }
 
@@ -110,7 +118,14 @@ public partial class App : Application
             _audioRecorder.StartRecording();
             PlayStartBeep();
             Console.WriteLine("[VoiceTyper] Recording started");
-            Dispatcher.Invoke(() => _trayIcon.SetRecording(true));
+            Dispatcher.Invoke(() =>
+            {
+                _trayIcon.SetRecording(true);
+                _trayIcon.SetStatus("VoiceTyper - Recording...");
+            });
+
+            // Ensure session exists, but do not block recording start UX.
+            _ = EnsureRealtimeSessionStartedAsync();
         }
         catch (Exception ex)
         {
@@ -133,30 +148,29 @@ public partial class App : Application
 
         PlayStopBeep();
 
-        string? filePath = null;
         try
         {
-            filePath = _audioRecorder.StopRecording();
-            Console.WriteLine($"[VoiceTyper] Recording stopped. File: {filePath ?? "NULL (empty)"}");
+            var hasAudio = _audioRecorder.StopRecording();
+            Console.WriteLine($"[VoiceTyper] Recording stopped. Has audio: {hasAudio}");
             Dispatcher.Invoke(() =>
             {
                 _trayIcon.SetRecording(false);
                 _trayIcon.SetStatus("VoiceTyper - Transcribing...");
             });
 
-            if (filePath == null)
+            if (!hasAudio)
             {
                 Console.WriteLine("[VoiceTyper] Recording was empty, aborting");
+                await EnsureRealtimeSessionStartedAsync();
+                await _transcriptionService.AbortSessionAsync();
                 Dispatcher.Invoke(() =>
                     _trayIcon.ShowNotification("VoiceTyper", "Recording was empty.", ToolTipIcon.Warning));
                 return;
             }
 
-            var fileSize = new System.IO.FileInfo(filePath).Length;
-            Console.WriteLine($"[VoiceTyper] WAV file size: {fileSize} bytes");
-
-            Console.WriteLine("[VoiceTyper] Calling OpenAI transcription...");
-            var transcript = await _transcriptionService.TranscribeAsync(filePath);
+            await EnsureRealtimeSessionStartedAsync();
+            Console.WriteLine("[VoiceTyper] Finalizing realtime transcription...");
+            var transcript = await _transcriptionService.CompleteSessionAsync();
             Console.WriteLine($"[VoiceTyper] Transcript received: \"{transcript}\"");
 
             if (string.IsNullOrWhiteSpace(transcript))
@@ -211,7 +225,11 @@ public partial class App : Application
         }
         finally
         {
-            AudioRecorderService.CleanupFile(filePath);
+            if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("OPENAI_API_KEY")))
+            {
+                // Re-warm next session immediately for near-instant next hotkey press.
+                _ = EnsureRealtimeSessionStartedAsync();
+            }
             _processing = false;
         }
     }
@@ -252,5 +270,35 @@ public partial class App : Application
         _audioRecorder.Dispose();
         _trayIcon.Dispose();
         Shutdown();
+    }
+
+    private async void OnAudioChunkAvailable(byte[] chunk)
+    {
+        try
+        {
+            await _transcriptionService.AppendAudioChunkAsync(chunk);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[VoiceTyper] Failed to stream audio chunk: {ex.Message}");
+        }
+    }
+
+    private async Task EnsureRealtimeSessionStartedAsync()
+    {
+        await _realtimeStartLock.WaitAsync();
+        try
+        {
+            if (!_transcriptionService.IsSessionActive && _realtimeWarmupTask.IsCompleted)
+            {
+                _realtimeWarmupTask = _transcriptionService.StartSessionAsync();
+            }
+        }
+        finally
+        {
+            _realtimeStartLock.Release();
+        }
+
+        await _realtimeWarmupTask;
     }
 }
