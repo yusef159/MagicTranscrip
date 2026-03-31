@@ -75,6 +75,11 @@ public class HotkeyService : IDisposable
                 return (IntPtr)1;
             }
 
+            if (isKeyDown && _isRecording && (key == _activeTriggerKey || IsModifierKey(key)))
+            {
+                return (IntPtr)1;
+            }
+
             // STOP: any key released while recording (trigger key OR any modifier)
             if (isKeyUp && _isRecording)
             {
@@ -87,7 +92,7 @@ public class HotkeyService : IDisposable
                     _activeTriggerKey = Key.None;
                     Console.WriteLine($"[HotkeyService] <<< Recording STOPPED (released: {key}, mode: {activeMode})");
                     Task.Run(() => RecordingStopped?.Invoke(activeMode));
-                    if (key == activeTriggerKey)
+                    if (key == activeTriggerKey || IsModifierKey(key))
                         return (IntPtr)1;
                 }
             }
@@ -140,7 +145,17 @@ public class HotkeyService : IDisposable
         var parsedModifiers = ModifierKeys.None;
         foreach (var mod in modifiers.Split('+', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
-            if (Enum.TryParse<ModifierKeys>(mod, true, out var parsed))
+            var normalized = mod.Trim().ToLowerInvariant();
+            var parsed = normalized switch
+            {
+                "ctrl" or "control" => ModifierKeys.Control,
+                "alt" => ModifierKeys.Alt,
+                "shift" => ModifierKeys.Shift,
+                "win" or "windows" => ModifierKeys.Windows,
+                _ => ModifierKeys.None
+            };
+
+            if (parsed != ModifierKeys.None)
                 parsedModifiers |= parsed;
         }
 
