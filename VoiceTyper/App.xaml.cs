@@ -17,6 +17,7 @@ public partial class App : Application
     private OpenAiTranscriptionService _transcriptionService = null!;
     private TranscriptCleanupService _cleanupService = null!;
     private TextInsertionService _textInsertion = null!;
+    private WordUsageService _wordUsageService = null!;
     private TrayIconService _trayIcon = null!;
     private MainWindow _settingsWindow = null!;
     private bool _processing;
@@ -36,13 +37,14 @@ public partial class App : Application
         _transcriptionService = new OpenAiTranscriptionService { LanguageHint = _settings.LanguageHint };
         _cleanupService = new TranscriptCleanupService();
         _textInsertion = new TextInsertionService();
+        _wordUsageService = new WordUsageService();
 
         _trayIcon = new TrayIconService();
         _trayIcon.SettingsRequested += ShowSettings;
         _trayIcon.ExitRequested += ExitApp;
         _trayIcon.DictationToggled += OnDictationToggled;
 
-        _settingsWindow = new MainWindow(_settingsService, _settings);
+        _settingsWindow = new MainWindow(_settingsService, _wordUsageService, _settings);
         _settingsWindow.SettingsSaved += OnSettingsSaved;
 
         _hotkeyService = new HotkeyService();
@@ -196,6 +198,9 @@ public partial class App : Application
                 transcript = await _cleanupService.RewriteProfessionalAsync(transcript);
                 Console.WriteLine($"[VoiceTyper] Professionally rewritten: \"{transcript}\"");
             }
+
+            var usageSnapshot = _wordUsageService.TrackTranscript(transcript);
+            Dispatcher.Invoke(() => _settingsWindow.UpdateWordUsage(usageSnapshot));
 
             if (_settings.AutoPaste)
             {

@@ -9,6 +9,7 @@ namespace VoiceTyper;
 public partial class MainWindow : Window
 {
     private readonly SettingsService _settingsService;
+    private readonly WordUsageService _wordUsageService;
     private AppSettings _settings;
     private string _capturedTranscriptModifiers = "";
     private string _capturedTranscriptKey = "";
@@ -17,12 +18,14 @@ public partial class MainWindow : Window
 
     public event Action<AppSettings>? SettingsSaved;
 
-    public MainWindow(SettingsService settingsService, AppSettings settings)
+    public MainWindow(SettingsService settingsService, WordUsageService wordUsageService, AppSettings settings)
     {
         InitializeComponent();
         _settingsService = settingsService;
+        _wordUsageService = wordUsageService;
         _settings = settings;
         LoadIntoUi();
+        UpdateWordUsage(_wordUsageService.GetSnapshot());
     }
 
     private void LoadIntoUi()
@@ -117,6 +120,20 @@ public partial class MainWindow : Window
     private static string FormatHotkey(string modifiers, string key)
     {
         return string.IsNullOrEmpty(modifiers) ? key : $"{modifiers}+{key}";
+    }
+
+    public void UpdateWordUsage(WordUsageSnapshot snapshot)
+    {
+        TodayWordsText.Text = FormatWordLabel(snapshot.TodayWords);
+        MonthWordsText.Text = FormatWordLabel(snapshot.CurrentMonthWords);
+        TotalWordsText.Text = FormatWordLabel(snapshot.TotalWords);
+        AverageWordsText.Text = FormatWordLabel(snapshot.AverageWordsPerDay);
+    }
+
+    private static string FormatWordLabel(int words)
+    {
+        var suffix = words == 1 ? "word" : "words";
+        return $"{words:N0} {suffix}";
     }
 
     private void Save_Click(object sender, RoutedEventArgs e)
