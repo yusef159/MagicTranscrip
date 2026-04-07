@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows.Input;
+using VoiceTyper.Models;
 
 namespace VoiceTyper.Services;
 
@@ -8,6 +9,14 @@ public enum TranscriptMode
 {
     Normal,
     Professional
+}
+
+public class CustomHotkeyBinding
+{
+    public string Name { get; init; } = "";
+    public string Instruction { get; init; } = "";
+    public Key TriggerKey { get; init; } = Key.None;
+    public ModifierKeys Modifiers { get; init; } = ModifierKeys.None;
 }
 
 public class HotkeyService : IDisposable
@@ -23,6 +32,8 @@ public class HotkeyService : IDisposable
     private bool _isRecording;
     private TranscriptMode _activeMode = TranscriptMode.Normal;
     private Key _activeTriggerKey = Key.None;
+    private CustomHotkeyBinding? _activeCustomHotkey;
+    private List<CustomHotkeyBinding> _customHotkeys = new();
 
     public Key TriggerKey { get; set; } = Key.Space;
     public ModifierKeys Modifiers { get; set; } = ModifierKeys.Control | ModifierKeys.Alt;
@@ -32,6 +43,8 @@ public class HotkeyService : IDisposable
 
     public event Action<TranscriptMode>? RecordingStarted;
     public event Action<TranscriptMode>? RecordingStopped;
+    public event Action<CustomHotkeyBinding>? CustomRecordingStarted;
+    public event Action<CustomHotkeyBinding>? CustomRecordingStopped;
 
     public HotkeyService()
     {
@@ -46,6 +59,21 @@ public class HotkeyService : IDisposable
         TriggerKey = ParseKey(key, TriggerKey);
         ProfessionalModifiers = ParseModifiers(professionalModifiers);
         ProfessionalTriggerKey = ParseKey(professionalKey, ProfessionalTriggerKey);
+    }
+
+    public void UpdateCustomHotkeys(IEnumerable<CustomHotkeySetting>? customHotkeys)
+    {
+        _customHotkeys = (customHotkeys ?? Enumerable.Empty<CustomHotkeySetting>())
+            .Where(hotkey => hotkey.Enabled && !string.IsNullOrWhiteSpace(hotkey.HotkeyKey))
+            .Select(hotkey => new CustomHotkeyBinding
+            {
+                Name = hotkey.Name,
+                Instruction = hotkey.Instruction,
+                Modifiers = ParseModifiers(hotkey.HotkeyModifiers),
+                TriggerKey = ParseKey(hotkey.HotkeyKey, Key.None)
+            })
+            .Where(binding => binding.TriggerKey != Key.None)
+            .ToList();
     }
 
     private IntPtr SetHook(LowLevelKeyboardProc proc)
@@ -65,13 +93,17 @@ public class HotkeyService : IDisposable
             bool isKeyDown = msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN;
             bool isKeyUp = msg == WM_KEYUP || msg == WM_SYSKEYUP;
 
-            if (isKeyDown && !_isRecording && TryResolveMode(key, out var mode))
+            if (isKeyDown && !_isRecording && TryResolveTrigger(key, out var mode, out var customHotkey))
             {
                 _isRecording = true;
                 _activeMode = mode;
                 _activeTriggerKey = key;
+                _activeCustomHotkey = customHotkey;
                 Console.WriteLine($"[HotkeyService] >>> Recording STARTED ({mode})");
-                Task.Run(() => RecordingStarted?.Invoke(mode));
+                if (customHotkey is not null)
+                    Task.Run(() => CustomRecordingStarted?.Invoke(customHotkey));
+                else
+                    Task.Run(() => RecordingStarted?.Invoke(mode));
                 return (IntPtr)1;
             }
 
@@ -90,8 +122,13 @@ public class HotkeyService : IDisposable
                     _activeMode = TranscriptMode.Normal;
                     var activeTriggerKey = _activeTriggerKey;
                     _activeTriggerKey = Key.None;
+                    var activeCustomHotkey = _activeCustomHotkey;
+                    _activeCustomHotkey = null;
                     Console.WriteLine($"[HotkeyService] <<< Recording STOPPED (released: {key}, mode: {activeMode})");
-                    Task.Run(() => RecordingStopped?.Invoke(activeMode));
+                    if (activeCustomHotkey is not null)
+                        Task.Run(() => CustomRecordingStopped?.Invoke(activeCustomHotkey));
+                    else
+                        Task.Run(() => RecordingStopped?.Invoke(activeMode));
                     if (key == activeTriggerKey || IsModifierKey(key))
                         return (IntPtr)1;
                 }
@@ -101,21 +138,34 @@ public class HotkeyService : IDisposable
         return CallNextHookEx(_hookId, nCode, wParam, lParam);
     }
 
-    private bool TryResolveMode(Key key, out TranscriptMode mode)
+    private bool TryResolveTrigger(Key key, out TranscriptMode mode, out CustomHotkeyBinding? customHotkey)
     {
         if (key == TriggerKey && AreModifiersPressed(Modifiers))
         {
             mode = TranscriptMode.Normal;
+            customHotkey = null;
             return true;
         }
 
         if (key == ProfessionalTriggerKey && AreModifiersPressed(ProfessionalModifiers))
         {
             mode = TranscriptMode.Professional;
+            customHotkey = null;
             return true;
         }
 
+        foreach (var binding in _customHotkeys)
+        {
+            if (key == binding.TriggerKey && AreModifiersPressed(binding.Modifiers))
+            {
+                mode = TranscriptMode.Normal;
+                customHotkey = binding;
+                return true;
+            }
+        }
+
         mode = TranscriptMode.Normal;
+        customHotkey = null;
         return false;
     }
 

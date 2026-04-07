@@ -70,6 +70,15 @@ public class WordUsageService
         var monthWords = store.DailyWordCounts
             .Where(kvp => kvp.Key.StartsWith(monthPrefix, StringComparison.Ordinal))
             .Sum(kvp => kvp.Value);
+        var oneYearCutoff = today.AddDays(-364);
+        var oneYearWords = store.DailyWordCounts
+            .Where(kvp => DateTime.TryParseExact(
+                kvp.Key,
+                "yyyy-MM-dd",
+                null,
+                System.Globalization.DateTimeStyles.None,
+                out var date) && date >= oneYearCutoff && date <= today)
+            .Sum(kvp => kvp.Value);
         var totalWords = store.DailyWordCounts.Sum(kvp => kvp.Value);
 
         var averagePerDay = 0;
@@ -84,7 +93,7 @@ public class WordUsageService
         {
             TodayWords = todayWords,
             CurrentMonthWords = monthWords,
-            TotalWords = totalWords,
+            OneYearWords = oneYearWords,
             AverageWordsPerDay = averagePerDay
         };
     }

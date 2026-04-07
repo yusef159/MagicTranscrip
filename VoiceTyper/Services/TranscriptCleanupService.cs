@@ -36,6 +36,20 @@ public class TranscriptCleanupService
         return await RewriteWithPromptAsync(rawText, ProfessionalRewriteSystemPrompt);
     }
 
+    public async Task<string> RewriteWithInstructionAsync(string rawText, string instruction)
+    {
+        if (string.IsNullOrWhiteSpace(instruction))
+            return rawText;
+
+        var prompt =
+            "Apply the user's instruction to the dictated text. " +
+            "Keep the original facts unless the instruction explicitly asks to transform them. " +
+            "Return only the rewritten text.\n\n" +
+            $"Instruction: {instruction.Trim()}";
+
+        return await RewriteWithPromptAsync(rawText, prompt);
+    }
+
     private async Task<string> RewriteWithPromptAsync(string rawText, string systemPrompt)
     {
         var apiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY")

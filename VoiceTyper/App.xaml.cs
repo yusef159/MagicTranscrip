@@ -22,6 +22,7 @@ public partial class App : Application
     private MainWindow _settingsWindow = null!;
     private bool _processing;
     private TranscriptMode _currentTranscriptMode = TranscriptMode.Normal;
+    private string _currentCustomInstruction = "";
     private readonly SemaphoreSlim _realtimeStartLock = new(1, 1);
     private Task _realtimeWarmupTask = Task.CompletedTask;
 
@@ -53,9 +54,12 @@ public partial class App : Application
             _settings.HotkeyKey,
             _settings.ProfessionalHotkeyModifiers,
             _settings.ProfessionalHotkeyKey);
+        _hotkeyService.UpdateCustomHotkeys(_settings.CustomHotkeys);
         _hotkeyService.Enabled = _settings.DictationEnabled;
-        _hotkeyService.RecordingStarted += OnRecordingStarted;
-        _hotkeyService.RecordingStopped += OnRecordingStopped;
+        _hotkeyService.RecordingStarted += OnBuiltInRecordingStarted;
+        _hotkeyService.RecordingStopped += OnBuiltInRecordingStopped;
+        _hotkeyService.CustomRecordingStarted += OnCustomRecordingStarted;
+        _hotkeyService.CustomRecordingStopped += OnCustomRecordingStopped;
 
         if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("OPENAI_API_KEY")))
         {
@@ -93,6 +97,18 @@ public partial class App : Application
         {
             SystemSounds.Beep.Play();
         }
+    }
+
+    private void OnBuiltInRecordingStarted(TranscriptMode mode)
+    {
+        _currentCustomInstruction = "";
+        OnRecordingStarted(mode);
+    }
+
+    private void OnCustomRecordingStarted(CustomHotkeyBinding customHotkey)
+    {
+        _currentCustomInstruction = customHotkey.Instruction;
+        OnRecordingStarted(TranscriptMode.Normal);
     }
 
     private void OnRecordingStarted(TranscriptMode mode)
@@ -135,6 +151,17 @@ public partial class App : Application
             Dispatcher.Invoke(() =>
                 _trayIcon.ShowNotification("VoiceTyper", $"Recording error: {ex.Message}", ToolTipIcon.Error));
         }
+    }
+
+    private void OnBuiltInRecordingStopped(TranscriptMode mode)
+    {
+        OnRecordingStopped(mode);
+    }
+
+    private void OnCustomRecordingStopped(CustomHotkeyBinding customHotkey)
+    {
+        _currentCustomInstruction = customHotkey.Instruction;
+        OnRecordingStopped(TranscriptMode.Normal);
     }
 
     private async void OnRecordingStopped(TranscriptMode mode)
@@ -199,6 +226,14 @@ public partial class App : Application
                 Console.WriteLine($"[VoiceTyper] Professionally rewritten: \"{transcript}\"");
             }
 
+            if (!string.IsNullOrWhiteSpace(_currentCustomInstruction))
+            {
+                Console.WriteLine("[VoiceTyper] Applying custom hotkey instruction...");
+                Dispatcher.Invoke(() => _trayIcon.SetStatus("VoiceTyper - Applying custom instruction..."));
+                transcript = await _cleanupService.RewriteWithInstructionAsync(transcript, _currentCustomInstruction);
+                Console.WriteLine($"[VoiceTyper] Custom-instruction rewrite complete: \"{transcript}\"");
+            }
+
             var usageSnapshot = _wordUsageService.TrackTranscript(transcript);
             Dispatcher.Invoke(() => _settingsWindow.UpdateWordUsage(usageSnapshot));
 
@@ -235,6 +270,7 @@ public partial class App : Application
                 // Re-warm next session immediately for near-instant next hotkey press.
                 _ = EnsureRealtimeSessionStartedAsync();
             }
+            _currentCustomInstruction = "";
             _processing = false;
         }
     }
@@ -254,6 +290,7 @@ public partial class App : Application
             settings.HotkeyKey,
             settings.ProfessionalHotkeyModifiers,
             settings.ProfessionalHotkeyKey);
+        _hotkeyService.UpdateCustomHotkeys(settings.CustomHotkeys);
         _hotkeyService.Enabled = settings.DictationEnabled;
         _audioRecorder.DeviceNumber = settings.MicrophoneDeviceIndex;
         _transcriptionService.LanguageHint = settings.LanguageHint;

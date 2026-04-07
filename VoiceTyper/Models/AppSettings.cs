@@ -13,4 +13,5 @@ public class AppSettings
     public int MicrophoneDeviceIndex { get; set; } = 0;
     public string LanguageHint { get; set; } = "";
     public bool DictationEnabled { get; set; } = true;
+    public List<CustomHotkeySetting> CustomHotkeys { get; set; } = new();
 }

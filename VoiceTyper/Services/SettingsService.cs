@@ -24,7 +24,9 @@ public class SettingsService
             if (File.Exists(SettingsPath))
             {
                 var json = File.ReadAllText(SettingsPath);
-                return JsonSerializer.Deserialize<AppSettings>(json, JsonOptions) ?? new AppSettings();
+                var settings = JsonSerializer.Deserialize<AppSettings>(json, JsonOptions) ?? new AppSettings();
+                settings.CustomHotkeys ??= new List<CustomHotkeySetting>();
+                return settings;
             }
         }
         catch

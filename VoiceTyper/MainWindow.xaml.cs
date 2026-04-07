@@ -1,8 +1,11 @@
 using System.Windows;
 using System.Windows.Input;
+using System.Collections.ObjectModel;
 using VoiceTyper.Models;
 using VoiceTyper.Services;
 using KeyEventArgs = System.Windows.Input.KeyEventArgs;
+using WpfButton = System.Windows.Controls.Button;
+using WpfTextBox = System.Windows.Controls.TextBox;
 
 namespace VoiceTyper;
 
@@ -15,6 +18,7 @@ public partial class MainWindow : Window
     private string _capturedTranscriptKey = "";
     private string _capturedProfessionalModifiers = "";
     private string _capturedProfessionalKey = "";
+    private readonly ObservableCollection<CustomHotkeySetting> _customHotkeys = new();
 
     public event Action<AppSettings>? SettingsSaved;
 
@@ -24,6 +28,7 @@ public partial class MainWindow : Window
         _settingsService = settingsService;
         _wordUsageService = wordUsageService;
         _settings = settings;
+        CustomHotkeysItems.ItemsSource = _customHotkeys;
         LoadIntoUi();
         UpdateWordUsage(_wordUsageService.GetSnapshot());
     }
@@ -38,6 +43,19 @@ public partial class MainWindow : Window
         _capturedProfessionalKey = _settings.ProfessionalHotkeyKey;
         ProfessionalHotkeyBox.Text = FormatHotkey(_capturedProfessionalModifiers, _capturedProfessionalKey);
 
+        _customHotkeys.Clear();
+        foreach (var customHotkey in _settings.CustomHotkeys ?? Enumerable.Empty<CustomHotkeySetting>())
+        {
+            _customHotkeys.Add(new CustomHotkeySetting
+            {
+                Name = customHotkey.Name,
+                HotkeyModifiers = customHotkey.HotkeyModifiers,
+                HotkeyKey = customHotkey.HotkeyKey,
+                Instruction = customHotkey.Instruction,
+                Enabled = customHotkey.Enabled
+            });
+        }
+
         var devices = AudioRecorderService.GetMicrophoneDevices();
         MicrophoneCombo.Items.Clear();
         foreach (var d in devices)
@@ -46,7 +64,6 @@ public partial class MainWindow : Window
         if (devices.Count > 0)
             MicrophoneCombo.SelectedIndex = Math.Min(_settings.MicrophoneDeviceIndex, devices.Count - 1);
 
-        LanguageBox.Text = _settings.LanguageHint;
         AutoPasteCheck.IsChecked = _settings.AutoPaste;
     }
 
@@ -72,7 +89,7 @@ public partial class MainWindow : Window
         KeyEventArgs e,
         Action<string> setModifiers,
         Action<string> setKey,
-        System.Windows.Controls.TextBox targetBox)
+        WpfTextBox targetBox)
     {
         e.Handled = true;
 
@@ -117,6 +134,57 @@ public partial class MainWindow : Window
             ProfessionalHotkeyBox.Text = FormatHotkey(_capturedProfessionalModifiers, _capturedProfessionalKey);
     }
 
+    private void AddCustomHotkey_Click(object sender, RoutedEventArgs e)
+    {
+        _customHotkeys.Add(new CustomHotkeySetting
+        {
+            Name = $"Custom hotkey {_customHotkeys.Count + 1}",
+            HotkeyModifiers = "",
+            HotkeyKey = "",
+            Instruction = "",
+            Enabled = true
+        });
+    }
+
+    private void RemoveCustomHotkey_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is WpfButton { DataContext: CustomHotkeySetting hotkey })
+            _customHotkeys.Remove(hotkey);
+    }
+
+    private void CustomHotkeyBox_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is WpfTextBox { DataContext: CustomHotkeySetting hotkey } box)
+            box.Text = FormatHotkey(hotkey.HotkeyModifiers, hotkey.HotkeyKey);
+    }
+
+    private void CustomHotkeyBox_GotFocus(object sender, RoutedEventArgs e)
+    {
+        if (sender is WpfTextBox box)
+            box.Text = "Press a key combination...";
+    }
+
+    private void CustomHotkeyBox_LostFocus(object sender, RoutedEventArgs e)
+    {
+        if (sender is WpfTextBox { DataContext: CustomHotkeySetting hotkey } box &&
+            box.Text == "Press a key combination...")
+        {
+            box.Text = FormatHotkey(hotkey.HotkeyModifiers, hotkey.HotkeyKey);
+        }
+    }
+
+    private void CustomHotkeyBox_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (sender is not WpfTextBox { DataContext: CustomHotkeySetting hotkey } box)
+            return;
+
+        CaptureHotkey(
+            e,
+            value => hotkey.HotkeyModifiers = value,
+            value => hotkey.HotkeyKey = value,
+            box);
+    }
+
     private static string FormatHotkey(string modifiers, string key)
     {
         return string.IsNullOrEmpty(modifiers) ? key : $"{modifiers}+{key}";
@@ -126,7 +194,7 @@ public partial class MainWindow : Window
     {
         TodayWordsText.Text = FormatWordLabel(snapshot.TodayWords);
         MonthWordsText.Text = FormatWordLabel(snapshot.CurrentMonthWords);
-        TotalWordsText.Text = FormatWordLabel(snapshot.TotalWords);
+        TotalWordsText.Text = FormatWordLabel(snapshot.OneYearWords);
         AverageWordsText.Text = FormatWordLabel(snapshot.AverageWordsPerDay);
     }
 
@@ -143,8 +211,18 @@ public partial class MainWindow : Window
         _settings.ProfessionalHotkeyModifiers = _capturedProfessionalModifiers;
         _settings.ProfessionalHotkeyKey = _capturedProfessionalKey;
         _settings.MicrophoneDeviceIndex = MicrophoneCombo.SelectedIndex >= 0 ? MicrophoneCombo.SelectedIndex : 0;
-        _settings.LanguageHint = LanguageBox.Text.Trim();
         _settings.AutoPaste = AutoPasteCheck.IsChecked == true;
+        _settings.CustomHotkeys = _customHotkeys
+            .Where(hotkey => !string.IsNullOrWhiteSpace(hotkey.HotkeyKey))
+            .Select(hotkey => new CustomHotkeySetting
+            {
+                Name = hotkey.Name.Trim(),
+                HotkeyModifiers = hotkey.HotkeyModifiers,
+                HotkeyKey = hotkey.HotkeyKey,
+                Instruction = hotkey.Instruction.Trim(),
+                Enabled = hotkey.Enabled
+            })
+            .ToList();
 
         _settingsService.Save(_settings);
         SettingsSaved?.Invoke(_settings);
