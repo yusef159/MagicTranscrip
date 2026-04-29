@@ -59,14 +59,10 @@
 
         <GroupBox Grid.Row="3" Header="Hotkeys">
             <StackPanel Margin="8,6,8,8">
-                <TextBlock Text="Default hotkeys keep their current behavior." Margin="0,0,0,8"/>
                 <Button Content="+ Add custom hotkey"
                         Width="160"
+                        Margin="0,0,0,12"
                         Click="AddCustomHotkey_Click"/>
-                <TextBlock Text="Custom hotkeys can be configured now and connected to custom model instructions next."
-                           Margin="0,8,0,8"
-                           Foreground="#666666"
-                           TextWrapping="Wrap"/>
                 <Border BorderBrush="#DDDDDD" BorderThickness="1" CornerRadius="4" Padding="8">
                     <ScrollViewer Height="180" VerticalScrollBarVisibility="Auto">
                         <ItemsControl x:Name="CustomHotkeysItems">

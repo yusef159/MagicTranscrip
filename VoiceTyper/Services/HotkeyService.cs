@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows.Input;
+using System.Collections.Concurrent;
 using VoiceTyper.Models;
 
 namespace VoiceTyper.Services;
@@ -34,6 +35,8 @@ public class HotkeyService : IDisposable
     private Key _activeTriggerKey = Key.None;
     private CustomHotkeyBinding? _activeCustomHotkey;
     private List<CustomHotkeyBinding> _customHotkeys = new();
+    private readonly BlockingCollection<Action> _callbackQueue = new();
+    private readonly Thread _callbackThread;
 
     public Key TriggerKey { get; set; } = Key.Space;
     public ModifierKeys Modifiers { get; set; } = ModifierKeys.Control | ModifierKeys.Alt;
@@ -50,6 +53,13 @@ public class HotkeyService : IDisposable
     {
         _hookProc = HookCallback;
         _hookId = SetHook(_hookProc);
+        _callbackThread = new Thread(ProcessCallbacks)
+        {
+            IsBackground = true,
+            Name = "VoiceTyper.HotkeyCallbacks",
+            Priority = ThreadPriority.AboveNormal
+        };
+        _callbackThread.Start();
         Console.WriteLine($"[HotkeyService] Hook installed: 0x{_hookId:X}");
     }
 
@@ -101,9 +111,9 @@ public class HotkeyService : IDisposable
                 _activeCustomHotkey = customHotkey;
                 Console.WriteLine($"[HotkeyService] >>> Recording STARTED ({mode})");
                 if (customHotkey is not null)
-                    Task.Run(() => CustomRecordingStarted?.Invoke(customHotkey));
+                    EnqueueCallback(() => CustomRecordingStarted?.Invoke(customHotkey));
                 else
-                    Task.Run(() => RecordingStarted?.Invoke(mode));
+                    EnqueueCallback(() => RecordingStarted?.Invoke(mode));
                 return (IntPtr)1;
             }
 
@@ -126,9 +136,9 @@ public class HotkeyService : IDisposable
                     _activeCustomHotkey = null;
                     Console.WriteLine($"[HotkeyService] <<< Recording STOPPED (released: {key}, mode: {activeMode})");
                     if (activeCustomHotkey is not null)
-                        Task.Run(() => CustomRecordingStopped?.Invoke(activeCustomHotkey));
+                        EnqueueCallback(() => CustomRecordingStopped?.Invoke(activeCustomHotkey));
                     else
-                        Task.Run(() => RecordingStopped?.Invoke(activeMode));
+                        EnqueueCallback(() => RecordingStopped?.Invoke(activeMode));
                     if (key == activeTriggerKey || IsModifierKey(key))
                         return (IntPtr)1;
                 }
@@ -229,6 +239,27 @@ public class HotkeyService : IDisposable
     private static bool IsKeyDown(int vkCode) =>
         (GetAsyncKeyState(vkCode) & 0x8000) != 0;
 
+    private void EnqueueCallback(Action callback)
+    {
+        if (!_callbackQueue.IsAddingCompleted)
+            _callbackQueue.Add(callback);
+    }
+
+    private void ProcessCallbacks()
+    {
+        foreach (var callback in _callbackQueue.GetConsumingEnumerable())
+        {
+            try
+            {
+                callback();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[HotkeyService] Callback error: {ex}");
+            }
+        }
+    }
+
     public void Dispose()
     {
         if (_hookId != IntPtr.Zero)
@@ -236,6 +267,9 @@ public class HotkeyService : IDisposable
             UnhookWindowsHookEx(_hookId);
             _hookId = IntPtr.Zero;
         }
+
+        _callbackQueue.CompleteAdding();
+        _callbackThread.Join(TimeSpan.FromMilliseconds(250));
     }
 
     private delegate IntPtr LowLevelKeyboardProc(int nCode, IntPtr wParam, IntPtr lParam);

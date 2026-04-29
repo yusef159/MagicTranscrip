@@ -2,6 +2,7 @@ using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Channels;
+using System.Collections.Generic;
 
 namespace VoiceTyper.Services;
 
@@ -12,6 +13,10 @@ public class OpenAiTranscriptionService
     private static readonly TimeSpan FinalTranscriptTimeout = TimeSpan.FromSeconds(12);
 
     private readonly SemaphoreSlim _sendLock = new(1, 1);
+    private readonly object _pendingAudioLock = new();
+    private readonly Queue<byte[]> _pendingAudioChunks = new();
+    private int _pendingAudioBytes;
+    private const int MaxPendingAudioBytes = 24_000 * 2 * 10; // 10s @ 24kHz mono PCM16
     private Channel<string> _outboundEvents = Channel.CreateUnbounded<string>();
     private readonly StringBuilder _transcriptBuilder = new();
     private ClientWebSocket? _socket;
@@ -43,19 +48,18 @@ public class OpenAiTranscriptionService
 
         var session = BuildSessionUpdateEvent();
         await SendRawAsync(session, _sessionCts.Token);
+        FlushPendingAudioChunksToOutbound();
     }
 
     public Task AppendAudioChunkAsync(byte[] pcmChunk)
     {
-        if (_socket == null)
-            return Task.CompletedTask;
-
-        var payload = JsonSerializer.Serialize(new
+        if (_socket == null || _socket.State != WebSocketState.Open)
         {
-            type = "input_audio_buffer.append",
-            audio = Convert.ToBase64String(pcmChunk)
-        });
-        _outboundEvents.Writer.TryWrite(payload);
+            BufferPendingAudioChunk(pcmChunk);
+            return Task.CompletedTask;
+        }
+
+        EnqueueAudioChunk(pcmChunk);
         return Task.CompletedTask;
     }
 
@@ -141,6 +145,53 @@ public class OpenAiTranscriptionService
         {
             _sendLock.Release();
         }
+    }
+
+    private void EnqueueAudioChunk(byte[] pcmChunk)
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            type = "input_audio_buffer.append",
+            audio = Convert.ToBase64String(pcmChunk)
+        });
+        _outboundEvents.Writer.TryWrite(payload);
+    }
+
+    private void BufferPendingAudioChunk(byte[] pcmChunk)
+    {
+        var copy = new byte[pcmChunk.Length];
+        Buffer.BlockCopy(pcmChunk, 0, copy, 0, pcmChunk.Length);
+
+        lock (_pendingAudioLock)
+        {
+            _pendingAudioChunks.Enqueue(copy);
+            _pendingAudioBytes += copy.Length;
+
+            // Keep memory bounded if startup/connect is delayed.
+            while (_pendingAudioBytes > MaxPendingAudioBytes && _pendingAudioChunks.Count > 0)
+            {
+                var removed = _pendingAudioChunks.Dequeue();
+                _pendingAudioBytes -= removed.Length;
+            }
+        }
+    }
+
+    private void FlushPendingAudioChunksToOutbound()
+    {
+        List<byte[]> buffered;
+        lock (_pendingAudioLock)
+        {
+            if (_pendingAudioChunks.Count == 0)
+                return;
+
+            buffered = new List<byte[]>(_pendingAudioChunks.Count);
+            while (_pendingAudioChunks.Count > 0)
+                buffered.Add(_pendingAudioChunks.Dequeue());
+            _pendingAudioBytes = 0;
+        }
+
+        foreach (var chunk in buffered)
+            EnqueueAudioChunk(chunk);
     }
 
     private async Task ReceiverLoopAsync(CancellationToken ct)

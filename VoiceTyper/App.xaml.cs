@@ -10,6 +10,10 @@ namespace VoiceTyper;
 
 public partial class App : Application
 {
+    private static readonly object _clickSoundLock = new();
+    private static SoundPlayer? _clickPlayer;
+    private static bool _clickUnavailable;
+
     private SettingsService _settingsService = null!;
     private AppSettings _settings = null!;
     private HotkeyService _hotkeyService = null!;
@@ -61,6 +65,32 @@ public partial class App : Application
         _hotkeyService.CustomRecordingStarted += OnCustomRecordingStarted;
         _hotkeyService.CustomRecordingStopped += OnCustomRecordingStopped;
 
+        // Prewarm local resources at startup to reduce first hotkey latency.
+        try
+        {
+            _audioRecorder.Warmup();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[VoiceTyper] Audio warmup failed: {ex.Message}");
+        }
+
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                lock (_clickSoundLock)
+                {
+                    if (!_clickUnavailable)
+                        EnsureClickSoundLoaded();
+                }
+            }
+            catch
+            {
+                _clickUnavailable = true;
+            }
+        });
+
         if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("OPENAI_API_KEY")))
         {
             _trayIcon.ShowNotification("VoiceTyper",
@@ -88,15 +118,42 @@ public partial class App : Application
     {
         try
         {
-            var baseDir = AppDomain.CurrentDomain.BaseDirectory;
-            var path = System.IO.Path.Combine(baseDir, "click.wav");
-            using var player = new SoundPlayer(path);
-            player.Play();
+            lock (_clickSoundLock)
+            {
+                if (_clickUnavailable)
+                {
+                    SystemSounds.Beep.Play();
+                    return;
+                }
+
+                EnsureClickSoundLoaded();
+                var clickPlayer = _clickPlayer;
+                if (clickPlayer == null)
+                {
+                    SystemSounds.Beep.Play();
+                    return;
+                }
+
+                clickPlayer.Stop();
+                clickPlayer.Play();
+            }
         }
         catch
         {
+            _clickUnavailable = true;
             SystemSounds.Beep.Play();
         }
+    }
+
+    private static void EnsureClickSoundLoaded()
+    {
+        if (_clickPlayer != null)
+            return;
+
+        var baseDir = AppDomain.CurrentDomain.BaseDirectory;
+        var path = System.IO.Path.Combine(baseDir, "click.wav");
+        _clickPlayer = new SoundPlayer(path);
+        _clickPlayer.Load();
     }
 
     private void OnBuiltInRecordingStarted(TranscriptMode mode)
@@ -124,19 +181,10 @@ public partial class App : Application
 
         try
         {
-            var deviceCount = NAudio.Wave.WaveInEvent.DeviceCount;
-            Console.WriteLine($"[VoiceTyper] Microphone devices found: {deviceCount}");
-            if (deviceCount == 0)
-            {
-                Dispatcher.Invoke(() =>
-                    _trayIcon.ShowNotification("VoiceTyper", "No microphone detected.", ToolTipIcon.Error));
-                return;
-            }
-
             _audioRecorder.StartRecording();
             PlayStartBeep();
             Console.WriteLine("[VoiceTyper] Recording started");
-            Dispatcher.Invoke(() =>
+            Dispatcher.BeginInvoke(() =>
             {
                 _trayIcon.SetRecording(true);
                 _trayIcon.SetStatus("VoiceTyper - Recording...");
