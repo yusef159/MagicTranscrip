@@ -3,5 +3,363 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              ShutdownMode="OnExplicitShutdown">
     <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary x:Key="VTThemeLight">
+                <SolidColorBrush x:Key="VTWindowBackgroundBrush" Color="#F4F7FB"/>
+                <SolidColorBrush x:Key="VTPanelBackgroundBrush" Color="#FFFFFF"/>
+                <SolidColorBrush x:Key="VTInnerPanelBackgroundBrush" Color="#F7F9FC"/>
+                <SolidColorBrush x:Key="VTBorderBrush" Color="#D9E1EE"/>
+                <SolidColorBrush x:Key="VTSidebarBackgroundBrush" Color="#EDF2FA"/>
+                <SolidColorBrush x:Key="VTPrimaryTextBrush" Color="#0F172A"/>
+                <SolidColorBrush x:Key="VTSecondaryTextBrush" Color="#5B6475"/>
+                <SolidColorBrush x:Key="VTAccentBrush" Color="#2563EB"/>
+                <SolidColorBrush x:Key="VTAccentHoverBrush" Color="#1D4ED8"/>
+                <SolidColorBrush x:Key="VTControlBackgroundBrush" Color="#FFFFFF"/>
+                <SolidColorBrush x:Key="VTControlForegroundBrush" Color="#111827"/>
+                <SolidColorBrush x:Key="VTControlPopupBackgroundBrush" Color="#FFFFFF"/>
+                <SolidColorBrush x:Key="VTSelectedNavBrush" Color="#DBEAFE"/>
+                <SolidColorBrush x:Key="VTSelectedNavTextBrush" Color="#1E3A8A"/>
+                <SolidColorBrush x:Key="VTNavHoverBrush" Color="#E2E8F0"/>
+                <SolidColorBrush x:Key="VTSecondaryButtonBrush" Color="#E6ECF5"/>
+                <SolidColorBrush x:Key="VTToggleOffBrush" Color="#CBD5E1"/>
+                <SolidColorBrush x:Key="VTToggleThumbBrush" Color="#FFFFFF"/>
+            </ResourceDictionary>
+
+            <ResourceDictionary x:Key="VTThemeDark">
+                <SolidColorBrush x:Key="VTWindowBackgroundBrush" Color="#0B1020"/>
+                <SolidColorBrush x:Key="VTPanelBackgroundBrush" Color="#121A2D"/>
+                <SolidColorBrush x:Key="VTInnerPanelBackgroundBrush" Color="#0F1628"/>
+                <SolidColorBrush x:Key="VTBorderBrush" Color="#253150"/>
+                <SolidColorBrush x:Key="VTSidebarBackgroundBrush" Color="#0E1527"/>
+                <SolidColorBrush x:Key="VTPrimaryTextBrush" Color="#E5E7EB"/>
+                <SolidColorBrush x:Key="VTSecondaryTextBrush" Color="#A0ACC2"/>
+                <SolidColorBrush x:Key="VTAccentBrush" Color="#3B82F6"/>
+                <SolidColorBrush x:Key="VTAccentHoverBrush" Color="#2563EB"/>
+                <SolidColorBrush x:Key="VTControlBackgroundBrush" Color="#0A1222"/>
+                <SolidColorBrush x:Key="VTControlForegroundBrush" Color="#E5E7EB"/>
+                <SolidColorBrush x:Key="VTControlPopupBackgroundBrush" Color="#111A2E"/>
+                <SolidColorBrush x:Key="VTSelectedNavBrush" Color="#1E3A8A"/>
+                <SolidColorBrush x:Key="VTSelectedNavTextBrush" Color="#DBEAFE"/>
+                <SolidColorBrush x:Key="VTNavHoverBrush" Color="#1E293B"/>
+                <SolidColorBrush x:Key="VTSecondaryButtonBrush" Color="#1F2937"/>
+                <SolidColorBrush x:Key="VTToggleOffBrush" Color="#334155"/>
+                <SolidColorBrush x:Key="VTToggleThumbBrush" Color="#FFFFFF"/>
+            </ResourceDictionary>
+
+            <Style TargetType="Window">
+                <Setter Property="FontFamily" Value="Segoe UI"/>
+                <Setter Property="Foreground" Value="{DynamicResource VTPrimaryTextBrush}"/>
+            </Style>
+
+            <Style TargetType="TextBlock">
+                <Setter Property="Foreground" Value="{DynamicResource VTPrimaryTextBrush}"/>
+            </Style>
+
+            <Style TargetType="TextBox">
+                <Setter Property="Padding" Value="8,6"/>
+                <Setter Property="FontSize" Value="13"/>
+                <Setter Property="Foreground" Value="{DynamicResource VTControlForegroundBrush}"/>
+                <Setter Property="Background" Value="{DynamicResource VTControlBackgroundBrush}"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource VTBorderBrush}"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="TextBox">
+                            <Border Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="4">
+                                <ScrollViewer x:Name="PART_ContentHost"
+                                              Margin="{TemplateBinding Padding}"/>
+                            </Border>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style TargetType="ComboBox">
+                <Setter Property="Padding" Value="8,6"/>
+                <Setter Property="FontSize" Value="13"/>
+                <Setter Property="Foreground" Value="{DynamicResource VTControlForegroundBrush}"/>
+                <Setter Property="Background" Value="{DynamicResource VTControlBackgroundBrush}"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource VTBorderBrush}"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="ItemContainerStyle" Value="{DynamicResource VTComboBoxItemStyle}"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ComboBox">
+                            <Grid>
+                                <ToggleButton x:Name="ToggleButton"
+                                              HorizontalAlignment="Stretch"
+                                              VerticalAlignment="Stretch"
+                                              IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                              Focusable="False"
+                                              Padding="{TemplateBinding Padding}"
+                                              Background="{TemplateBinding Background}"
+                                              BorderBrush="{TemplateBinding BorderBrush}"
+                                              BorderThickness="{TemplateBinding BorderThickness}">
+                                    <ToggleButton.Template>
+                                        <ControlTemplate TargetType="ToggleButton">
+                                            <Border x:Name="ComboBorder"
+                                                    Background="{TemplateBinding Background}"
+                                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                                    CornerRadius="4"
+                                                    Padding="{TemplateBinding Padding}">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="20"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <ContentPresenter Margin="0,0,8,0"
+                                                                      VerticalAlignment="Center"
+                                                                      HorizontalAlignment="Stretch"
+                                                                      Content="{Binding SelectionBoxItem, RelativeSource={RelativeSource AncestorType=ComboBox}}"
+                                                                      ContentStringFormat="{Binding SelectionBoxItemStringFormat, RelativeSource={RelativeSource AncestorType=ComboBox}}"/>
+                                                    <Path Grid.Column="1"
+                                                          VerticalAlignment="Center"
+                                                          HorizontalAlignment="Center"
+                                                          Fill="{DynamicResource VTSecondaryTextBrush}"
+                                                          Data="M 0 0 L 4 4 L 8 0 Z"/>
+                                                </Grid>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="ComboBorder" Property="BorderBrush" Value="{DynamicResource VTAccentBrush}"/>
+                                                </Trigger>
+                                                <Trigger Property="IsChecked" Value="True">
+                                                    <Setter TargetName="ComboBorder" Property="BorderBrush" Value="{DynamicResource VTAccentBrush}"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </ToggleButton.Template>
+                                </ToggleButton>
+                                <Popup x:Name="PART_Popup"
+                                       Placement="Bottom"
+                                       IsOpen="{TemplateBinding IsDropDownOpen}"
+                                       AllowsTransparency="True"
+                                       Focusable="False"
+                                       PopupAnimation="Slide">
+                                    <Border Margin="0,4,0,0"
+                                            MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
+                                            Background="{DynamicResource VTControlPopupBackgroundBrush}"
+                                            BorderBrush="{DynamicResource VTBorderBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="4">
+                                        <ScrollViewer Margin="2"
+                                                      MaxHeight="240"
+                                                      CanContentScroll="True">
+                                            <StackPanel IsItemsHost="True"
+                                                        KeyboardNavigation.DirectionalNavigation="Contained"/>
+                                        </ScrollViewer>
+                                    </Border>
+                                </Popup>
+                            </Grid>
+                            <ControlTemplate.Triggers/>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style x:Key="VTComboBoxItemStyle" TargetType="ComboBoxItem">
+                <Setter Property="Foreground" Value="{DynamicResource VTControlForegroundBrush}"/>
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="Padding" Value="8,5"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ComboBoxItem">
+                            <Border x:Name="ItemBorder"
+                                    Background="{TemplateBinding Background}"
+                                    CornerRadius="3">
+                                <ContentPresenter/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsHighlighted" Value="True">
+                                    <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource VTSelectedNavBrush}"/>
+                                </Trigger>
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource VTSelectedNavBrush}"/>
+                                    <Setter Property="Foreground" Value="{DynamicResource VTSelectedNavTextBrush}"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style TargetType="CheckBox">
+                <Setter Property="FontSize" Value="13"/>
+                <Setter Property="Foreground" Value="{DynamicResource VTPrimaryTextBrush}"/>
+            </Style>
+
+            <Style TargetType="Button">
+                <Setter Property="Foreground" Value="White"/>
+                <Setter Property="Background" Value="{DynamicResource VTAccentBrush}"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource VTAccentBrush}"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="Padding" Value="12,8"/>
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="ButtonBorder"
+                                    CornerRadius="8"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}">
+                                <ContentPresenter HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="ButtonBorder" Property="Background" Value="{DynamicResource VTAccentHoverBrush}"/>
+                                    <Setter TargetName="ButtonBorder" Property="BorderBrush" Value="{DynamicResource VTAccentHoverBrush}"/>
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter TargetName="ButtonBorder" Property="Opacity" Value="0.5"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style x:Key="VTSecondaryButtonStyle"
+                   TargetType="Button"
+                   BasedOn="{StaticResource {x:Type Button}}">
+                <Setter Property="Foreground" Value="{DynamicResource VTPrimaryTextBrush}"/>
+                <Setter Property="Background" Value="{DynamicResource VTSecondaryButtonBrush}"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource VTBorderBrush}"/>
+            </Style>
+
+            <Style x:Key="VTThemeToggleStyle" TargetType="ToggleButton">
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ToggleButton">
+                            <Border x:Name="Track"
+                                    CornerRadius="15"
+                                    Background="{DynamicResource VTToggleOffBrush}">
+                                <Ellipse x:Name="Thumb"
+                                         Width="22"
+                                         Height="22"
+                                         Fill="{DynamicResource VTToggleThumbBrush}"
+                                         Margin="4,0,0,0"
+                                         HorizontalAlignment="Left"
+                                         VerticalAlignment="Center"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Setter TargetName="Track" Property="Background" Value="{DynamicResource VTAccentBrush}"/>
+                                    <Setter TargetName="Thumb" Property="HorizontalAlignment" Value="Right"/>
+                                    <Setter TargetName="Thumb" Property="Margin" Value="0,0,4,0"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style x:Key="VTPanelStyle" TargetType="Border">
+                <Setter Property="Background" Value="{DynamicResource VTPanelBackgroundBrush}"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource VTBorderBrush}"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="CornerRadius" Value="14"/>
+                <Setter Property="Padding" Value="14"/>
+            </Style>
+
+            <Style x:Key="VTCardStyle" TargetType="Border">
+                <Setter Property="Background" Value="{DynamicResource VTPanelBackgroundBrush}"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource VTBorderBrush}"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="CornerRadius" Value="12"/>
+                <Setter Property="Padding" Value="18"/>
+                <Setter Property="Margin" Value="0,0,0,12"/>
+            </Style>
+
+            <Style x:Key="VTInnerPanelStyle" TargetType="Border">
+                <Setter Property="Background" Value="{DynamicResource VTInnerPanelBackgroundBrush}"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource VTBorderBrush}"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="CornerRadius" Value="10"/>
+                <Setter Property="Padding" Value="10"/>
+            </Style>
+
+            <Style x:Key="VTInnerCardStyle" TargetType="Border">
+                <Setter Property="Background" Value="{DynamicResource VTPanelBackgroundBrush}"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource VTBorderBrush}"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="CornerRadius" Value="10"/>
+                <Setter Property="Padding" Value="12"/>
+                <Setter Property="Margin" Value="0,0,0,10"/>
+            </Style>
+
+            <Style x:Key="VTStatCardStyle" TargetType="Border">
+                <Setter Property="Background" Value="{DynamicResource VTInnerPanelBackgroundBrush}"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource VTBorderBrush}"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="CornerRadius" Value="10"/>
+                <Setter Property="Padding" Value="14"/>
+            </Style>
+
+            <Style x:Key="VTTitleTextStyle" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="28"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
+                <Setter Property="Foreground" Value="{DynamicResource VTPrimaryTextBrush}"/>
+            </Style>
+
+            <Style x:Key="VTSectionTitleTextStyle" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="20"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
+                <Setter Property="Foreground" Value="{DynamicResource VTPrimaryTextBrush}"/>
+            </Style>
+
+            <Style x:Key="VTSecondaryTextStyle" TargetType="TextBlock">
+                <Setter Property="Foreground" Value="{DynamicResource VTSecondaryTextBrush}"/>
+                <Setter Property="FontSize" Value="13"/>
+            </Style>
+
+            <Style x:Key="VTStatValueTextStyle" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="22"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
+                <Setter Property="Foreground" Value="{DynamicResource VTPrimaryTextBrush}"/>
+            </Style>
+
+            <Style x:Key="VTSidebarListItemStyle" TargetType="ListBoxItem">
+                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                <Setter Property="Padding" Value="14,10"/>
+                <Setter Property="Margin" Value="4,6"/>
+                <Setter Property="MinHeight" Value="40"/>
+                <Setter Property="Foreground" Value="{DynamicResource VTPrimaryTextBrush}"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ListBoxItem">
+                            <Border x:Name="NavItemBorder"
+                                    Background="Transparent"
+                                    CornerRadius="4">
+                                <ContentPresenter VerticalAlignment="Center"
+                                                  HorizontalAlignment="Left"
+                                                  Margin="2,0"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter TargetName="NavItemBorder" Property="Background" Value="{DynamicResource VTSelectedNavBrush}"/>
+                                    <Setter Property="Foreground" Value="{DynamicResource VTSelectedNavTextBrush}"/>
+                                </Trigger>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="NavItemBorder" Property="Background" Value="{DynamicResource VTNavHoverBrush}"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style x:Key="VTSidebarListStyle" TargetType="ListBox">
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="BorderThickness" Value="0"/>
+                <Setter Property="ItemContainerStyle" Value="{StaticResource VTSidebarListItemStyle}"/>
+            </Style>
+        </ResourceDictionary>
     </Application.Resources>
 </Application>

@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using System.Collections.ObjectModel;
 using VoiceTyper.Models;
@@ -11,6 +12,9 @@ namespace VoiceTyper;
 
 public partial class MainWindow : Window
 {
+    private const string LightThemeResourceKey = "VTThemeLight";
+    private const string DarkThemeResourceKey = "VTThemeDark";
+
     private readonly SettingsService _settingsService;
     private readonly WordUsageService _wordUsageService;
     private AppSettings _settings;
@@ -19,6 +23,7 @@ public partial class MainWindow : Window
     private string _capturedProfessionalModifiers = "";
     private string _capturedProfessionalKey = "";
     private readonly ObservableCollection<CustomHotkeySetting> _customHotkeys = new();
+    private ResourceDictionary? _activeThemeDictionary;
 
     public event Action<AppSettings>? SettingsSaved;
 
@@ -28,9 +33,17 @@ public partial class MainWindow : Window
         _settingsService = settingsService;
         _wordUsageService = wordUsageService;
         _settings = settings;
+        InitializeModernShell();
         CustomHotkeysItems.ItemsSource = _customHotkeys;
         LoadIntoUi();
         UpdateWordUsage(_wordUsageService.GetSnapshot());
+    }
+
+    private void InitializeModernShell()
+    {
+        ThemeToggle.IsChecked = true;
+        ApplyThemeFromToggle();
+        SetVisibleSection("General");
     }
 
     private void LoadIntoUi()
@@ -188,6 +201,55 @@ public partial class MainWindow : Window
     private static string FormatHotkey(string modifiers, string key)
     {
         return string.IsNullOrEmpty(modifiers) ? key : $"{modifiers}+{key}";
+    }
+
+    private void ThemeToggle_Checked(object sender, RoutedEventArgs e)
+    {
+        ApplyThemeFromToggle();
+    }
+
+    private void ApplyThemeFromToggle()
+    {
+        var selectedThemeKey = ThemeToggle.IsChecked == true
+            ? DarkThemeResourceKey
+            : LightThemeResourceKey;
+        ApplyTheme(selectedThemeKey);
+    }
+
+    private void ApplyTheme(string themeResourceKey)
+    {
+        if (System.Windows.Application.Current.Resources[themeResourceKey] is not ResourceDictionary sourceTheme)
+            return;
+
+        if (_activeThemeDictionary != null)
+            Resources.MergedDictionaries.Remove(_activeThemeDictionary);
+
+        var clonedTheme = new ResourceDictionary();
+        foreach (var key in sourceTheme.Keys)
+            clonedTheme[key] = sourceTheme[key];
+
+        Resources.MergedDictionaries.Add(clonedTheme);
+        _activeThemeDictionary = clonedTheme;
+    }
+
+    private void NavSections_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (NavSections.SelectedItem is not ListBoxItem selectedItem)
+            return;
+
+        var sectionKey = selectedItem.Tag as string ?? "General";
+        SetVisibleSection(sectionKey);
+    }
+
+    private void SetVisibleSection(string sectionKey)
+    {
+        if (GeneralSectionPanel == null || CustomCommandsPanel == null || UsagePanel == null || FutureSectionPanel == null)
+            return;
+
+        GeneralSectionPanel.Visibility = sectionKey == "General" ? Visibility.Visible : Visibility.Collapsed;
+        CustomCommandsPanel.Visibility = sectionKey == "Custom" ? Visibility.Visible : Visibility.Collapsed;
+        UsagePanel.Visibility = sectionKey == "Usage" ? Visibility.Visible : Visibility.Collapsed;
+        FutureSectionPanel.Visibility = sectionKey == "Future" ? Visibility.Visible : Visibility.Collapsed;
     }
 
     public void UpdateWordUsage(WordUsageSnapshot snapshot)
