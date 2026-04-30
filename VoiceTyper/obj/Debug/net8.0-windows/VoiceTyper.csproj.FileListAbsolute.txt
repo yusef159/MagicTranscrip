@@ -30,7 +30,6 @@ C:\Users\yusef\Documents\MagicTranscript\VoiceTyper\obj\Debug\net8.0-windows\ref
 C:\Users\yusef\Documents\MagicTranscript\VoiceTyper\obj\Debug\net8.0-windows\VoiceTyper.sourcelink.json
 C:\Users\yusef\Documents\MagicTranscript\VoiceTyper\bin\Debug\net8.0-windows\click.wav
 C:\Users\yusef\Documents\MagicTranscript\VoiceTyper\obj\Debug\net8.0-windows\VoiceTyper_Content.g.cs
-C:\Users\yusef\Documents\Cursor Projects\MagicTranscript\VoiceTyper\bin\Debug\net8.0-windows\VoiceTyper.exe
 C:\Users\yusef\Documents\Cursor Projects\MagicTranscript\VoiceTyper\bin\Debug\net8.0-windows\click.wav
 C:\Users\yusef\Documents\Cursor Projects\MagicTranscript\VoiceTyper\bin\Debug\net8.0-windows\VoiceTyper.deps.json
 C:\Users\yusef\Documents\Cursor Projects\MagicTranscript\VoiceTyper\bin\Debug\net8.0-windows\VoiceTyper.runtimeconfig.json
@@ -75,3 +74,4 @@ C:\Users\yusef\Documents\Cursor Projects\MagicTranscript\VoiceTyper\bin\Debug\ve
 C:\Users\yusef\Documents\Cursor Projects\MagicTranscript\VoiceTyper\bin\Debug\verify-build\NAudio.Wasapi.dll
 C:\Users\yusef\Documents\Cursor Projects\MagicTranscript\VoiceTyper\bin\Debug\verify-build\NAudio.WinForms.dll
 C:\Users\yusef\Documents\Cursor Projects\MagicTranscript\VoiceTyper\bin\Debug\verify-build\NAudio.WinMM.dll
+C:\Users\yusef\Documents\Cursor Projects\MagicTranscript\VoiceTyper\bin\Debug\net8.0-windows\VoiceTyper.exe

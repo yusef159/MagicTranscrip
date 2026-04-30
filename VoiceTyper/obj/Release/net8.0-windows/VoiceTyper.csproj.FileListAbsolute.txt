@@ -62,3 +62,16 @@ C:\Users\yusef\Documents\Cursor Projects\MagicTranscript\VoiceTyper\obj\Release\
 C:\Users\yusef\Documents\Cursor Projects\MagicTranscript\VoiceTyper\obj\Release\net8.0-windows\VoiceTyper.pdb
 C:\Users\yusef\Documents\Cursor Projects\MagicTranscript\VoiceTyper\obj\Release\net8.0-windows\VoiceTyper.genruntimeconfig.cache
 C:\Users\yusef\Documents\Cursor Projects\MagicTranscript\VoiceTyper\obj\Release\net8.0-windows\ref\VoiceTyper.dll
+C:\Users\yusef\Documents\Cursor Projects\MagicTranscript\VoiceTyper\.tmp-build-check\VoiceTyper.exe
+C:\Users\yusef\Documents\Cursor Projects\MagicTranscript\VoiceTyper\.tmp-build-check\click.wav
+C:\Users\yusef\Documents\Cursor Projects\MagicTranscript\VoiceTyper\.tmp-build-check\VoiceTyper.deps.json
+C:\Users\yusef\Documents\Cursor Projects\MagicTranscript\VoiceTyper\.tmp-build-check\VoiceTyper.runtimeconfig.json
+C:\Users\yusef\Documents\Cursor Projects\MagicTranscript\VoiceTyper\.tmp-build-check\VoiceTyper.dll
+C:\Users\yusef\Documents\Cursor Projects\MagicTranscript\VoiceTyper\.tmp-build-check\VoiceTyper.pdb
+C:\Users\yusef\Documents\Cursor Projects\MagicTranscript\VoiceTyper\.tmp-build-check\NAudio.dll
+C:\Users\yusef\Documents\Cursor Projects\MagicTranscript\VoiceTyper\.tmp-build-check\NAudio.Asio.dll
+C:\Users\yusef\Documents\Cursor Projects\MagicTranscript\VoiceTyper\.tmp-build-check\NAudio.Core.dll
+C:\Users\yusef\Documents\Cursor Projects\MagicTranscript\VoiceTyper\.tmp-build-check\NAudio.Midi.dll
+C:\Users\yusef\Documents\Cursor Projects\MagicTranscript\VoiceTyper\.tmp-build-check\NAudio.Wasapi.dll
+C:\Users\yusef\Documents\Cursor Projects\MagicTranscript\VoiceTyper\.tmp-build-check\NAudio.WinForms.dll
+C:\Users\yusef\Documents\Cursor Projects\MagicTranscript\VoiceTyper\.tmp-build-check\NAudio.WinMM.dll

@@ -20,6 +20,14 @@ public class CustomHotkeyBinding
     public ModifierKeys Modifiers { get; init; } = ModifierKeys.None;
 }
 
+public class TransformHotkeyBinding
+{
+    public string Name { get; init; } = "";
+    public string Prompt { get; init; } = "";
+    public Key TriggerKey { get; init; } = Key.None;
+    public ModifierKeys Modifiers { get; init; } = ModifierKeys.None;
+}
+
 public class HotkeyService : IDisposable
 {
     private const int WH_KEYBOARD_LL = 13;
@@ -34,7 +42,9 @@ public class HotkeyService : IDisposable
     private TranscriptMode _activeMode = TranscriptMode.Normal;
     private Key _activeTriggerKey = Key.None;
     private CustomHotkeyBinding? _activeCustomHotkey;
+    private readonly HashSet<Key> _pressedTransformKeys = new();
     private List<CustomHotkeyBinding> _customHotkeys = new();
+    private List<TransformHotkeyBinding> _transforms = new();
     private readonly BlockingCollection<Action> _callbackQueue = new();
     private readonly Thread _callbackThread;
 
@@ -48,6 +58,7 @@ public class HotkeyService : IDisposable
     public event Action<TranscriptMode>? RecordingStopped;
     public event Action<CustomHotkeyBinding>? CustomRecordingStarted;
     public event Action<CustomHotkeyBinding>? CustomRecordingStopped;
+    public event Action<TransformHotkeyBinding>? TransformTriggered;
 
     public HotkeyService()
     {
@@ -86,6 +97,24 @@ public class HotkeyService : IDisposable
             .ToList();
     }
 
+    public void UpdateTransforms(IEnumerable<TransformSetting>? transforms)
+    {
+        _transforms = (transforms ?? Enumerable.Empty<TransformSetting>())
+            .Where(transform =>
+                transform.Enabled &&
+                !string.IsNullOrWhiteSpace(transform.HotkeyKey) &&
+                !string.IsNullOrWhiteSpace(transform.Prompt))
+            .Select(transform => new TransformHotkeyBinding
+            {
+                Name = transform.Name,
+                Prompt = transform.Prompt,
+                Modifiers = ParseModifiers(transform.HotkeyModifiers),
+                TriggerKey = ParseKey(transform.HotkeyKey, Key.None)
+            })
+            .Where(binding => binding.TriggerKey != Key.None)
+            .ToList();
+    }
+
     private IntPtr SetHook(LowLevelKeyboardProc proc)
     {
         using var process = Process.GetCurrentProcess();
@@ -117,6 +146,13 @@ public class HotkeyService : IDisposable
                 return (IntPtr)1;
             }
 
+            if (isKeyDown && !_isRecording && TryResolveTransformTrigger(key, out var transform))
+            {
+                if (_pressedTransformKeys.Add(key))
+                    EnqueueCallback(() => TransformTriggered?.Invoke(transform));
+                return (IntPtr)1;
+            }
+
             if (isKeyDown && _isRecording && (key == _activeTriggerKey || IsModifierKey(key)))
             {
                 return (IntPtr)1;
@@ -143,6 +179,9 @@ public class HotkeyService : IDisposable
                         return (IntPtr)1;
                 }
             }
+
+            if (isKeyUp)
+                _pressedTransformKeys.Remove(key);
         }
 
         return CallNextHookEx(_hookId, nCode, wParam, lParam);
@@ -176,6 +215,21 @@ public class HotkeyService : IDisposable
 
         mode = TranscriptMode.Normal;
         customHotkey = null;
+        return false;
+    }
+
+    private bool TryResolveTransformTrigger(Key key, out TransformHotkeyBinding transform)
+    {
+        foreach (var binding in _transforms)
+        {
+            if (key == binding.TriggerKey && AreModifiersPressed(binding.Modifiers))
+            {
+                transform = binding;
+                return true;
+            }
+        }
+
+        transform = null!;
         return false;
     }
 

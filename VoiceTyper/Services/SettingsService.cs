@@ -26,6 +26,8 @@ public class SettingsService
                 var json = File.ReadAllText(SettingsPath);
                 var settings = JsonSerializer.Deserialize<AppSettings>(json, JsonOptions) ?? new AppSettings();
                 settings.CustomHotkeys ??= new List<CustomHotkeySetting>();
+                settings.Snippets ??= new List<SnippetSetting>();
+                settings.Transforms ??= new List<TransformSetting>();
                 return settings;
             }
         }

@@ -1,7 +1,9 @@
 using System.Net.Http;
+using System.IO;
 using System.Windows;
 using System.Windows.Forms;
 using System.Media;
+using NAudio.Wave;
 using VoiceTyper.Models;
 using VoiceTyper.Services;
 using Application = System.Windows.Application;
@@ -10,9 +12,15 @@ namespace VoiceTyper;
 
 public partial class App : Application
 {
-    private static readonly object _clickSoundLock = new();
-    private static SoundPlayer? _clickPlayer;
-    private static bool _clickUnavailable;
+    private static readonly object _soundLock = new();
+    private static IWavePlayer? _activeSoundOutput;
+    private static AudioFileReader? _activeSoundReader;
+    private static bool _transformSoundUnavailable;
+    private static bool _defaultSoundUnavailable;
+    private static readonly string _downloadsDirectory =
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
+    private static readonly string _transformSoundPath = Path.Combine(_downloadsDirectory, "transform.mp3");
+    private static readonly string _defaultSoundPath = Path.Combine(_downloadsDirectory, "ping.mp3");
 
     private SettingsService _settingsService = null!;
     private AppSettings _settings = null!;
@@ -59,11 +67,13 @@ public partial class App : Application
             _settings.ProfessionalHotkeyModifiers,
             _settings.ProfessionalHotkeyKey);
         _hotkeyService.UpdateCustomHotkeys(_settings.CustomHotkeys);
+        _hotkeyService.UpdateTransforms(_settings.Transforms);
         _hotkeyService.Enabled = _settings.DictationEnabled;
         _hotkeyService.RecordingStarted += OnBuiltInRecordingStarted;
         _hotkeyService.RecordingStopped += OnBuiltInRecordingStopped;
         _hotkeyService.CustomRecordingStarted += OnCustomRecordingStarted;
         _hotkeyService.CustomRecordingStopped += OnCustomRecordingStopped;
+        _hotkeyService.TransformTriggered += OnTransformTriggered;
 
         // Prewarm local resources at startup to reduce first hotkey latency.
         try
@@ -74,22 +84,6 @@ public partial class App : Application
         {
             Console.WriteLine($"[VoiceTyper] Audio warmup failed: {ex.Message}");
         }
-
-        _ = Task.Run(() =>
-        {
-            try
-            {
-                lock (_clickSoundLock)
-                {
-                    if (!_clickUnavailable)
-                        EnsureClickSoundLoaded();
-                }
-            }
-            catch
-            {
-                _clickUnavailable = true;
-            }
-        });
 
         if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("OPENAI_API_KEY")))
         {
@@ -106,54 +100,80 @@ public partial class App : Application
 
     private static void PlayStartBeep()
     {
-        PlayClickSound();
+        PlayDefaultSound();
     }
 
     private static void PlayStopBeep()
     {
-        PlayClickSound();
+        PlayDefaultSound();
     }
 
-    private static void PlayClickSound()
+    private static void PlayTransformBeep()
+    {
+        PlayConfiguredSound(_transformSoundPath, ref _transformSoundUnavailable);
+    }
+
+    private static void PlayDefaultSound()
+    {
+        PlayConfiguredSound(_defaultSoundPath, ref _defaultSoundUnavailable);
+    }
+
+    private static void PlayConfiguredSound(string path, ref bool unavailableFlag)
     {
         try
         {
-            lock (_clickSoundLock)
+            lock (_soundLock)
             {
-                if (_clickUnavailable)
+                if (unavailableFlag)
                 {
                     SystemSounds.Beep.Play();
                     return;
                 }
 
-                EnsureClickSoundLoaded();
-                var clickPlayer = _clickPlayer;
-                if (clickPlayer == null)
+                if (!File.Exists(path))
                 {
+                    unavailableFlag = true;
                     SystemSounds.Beep.Play();
                     return;
                 }
 
-                clickPlayer.Stop();
-                clickPlayer.Play();
+                _activeSoundOutput?.Stop();
+                _activeSoundOutput?.Dispose();
+                _activeSoundOutput = null;
+                _activeSoundReader?.Dispose();
+                _activeSoundReader = null;
+
+                var output = new WaveOutEvent();
+                var reader = new AudioFileReader(path);
+                output.Init(reader);
+                output.PlaybackStopped += (_, _) =>
+                {
+                    lock (_soundLock)
+                    {
+                        if (ReferenceEquals(_activeSoundOutput, output))
+                        {
+                            _activeSoundOutput.Dispose();
+                            _activeSoundOutput = null;
+                        }
+
+                        if (ReferenceEquals(_activeSoundReader, reader))
+                        {
+                            _activeSoundReader.Dispose();
+                            _activeSoundReader = null;
+                        }
+                    }
+                };
+
+                _activeSoundOutput = output;
+                _activeSoundReader = reader;
+                output.Play();
             }
         }
         catch
         {
-            _clickUnavailable = true;
+            unavailableFlag = true;
             SystemSounds.Beep.Play();
         }
-    }
-
-    private static void EnsureClickSoundLoaded()
-    {
-        if (_clickPlayer != null)
-            return;
-
-        var baseDir = AppDomain.CurrentDomain.BaseDirectory;
-        var path = System.IO.Path.Combine(baseDir, "click.wav");
-        _clickPlayer = new SoundPlayer(path);
-        _clickPlayer.Load();
     }
 
     private void OnBuiltInRecordingStarted(TranscriptMode mode)
@@ -258,7 +278,14 @@ public partial class App : Application
                 return;
             }
 
-            if (_settings.EnableCleanup)
+            var snippetApplied = TryResolveSnippetReplacement(transcript, out var snippetText);
+            if (snippetApplied)
+            {
+                transcript = snippetText;
+                Console.WriteLine($"[VoiceTyper] Snippet matched. Expanded transcript to: \"{transcript}\"");
+            }
+
+            if (_settings.EnableCleanup && !snippetApplied)
             {
                 Console.WriteLine("[VoiceTyper] Running cleanup...");
                 Dispatcher.Invoke(() => _trayIcon.SetStatus("VoiceTyper - Cleaning up..."));
@@ -266,7 +293,7 @@ public partial class App : Application
                 Console.WriteLine($"[VoiceTyper] Cleaned up: \"{transcript}\"");
             }
 
-            if (_currentTranscriptMode == TranscriptMode.Professional)
+            if (_currentTranscriptMode == TranscriptMode.Professional && !snippetApplied)
             {
                 Console.WriteLine("[VoiceTyper] Rewriting transcript professionally...");
                 Dispatcher.Invoke(() => _trayIcon.SetStatus("VoiceTyper - Rewriting..."));
@@ -274,7 +301,7 @@ public partial class App : Application
                 Console.WriteLine($"[VoiceTyper] Professionally rewritten: \"{transcript}\"");
             }
 
-            if (!string.IsNullOrWhiteSpace(_currentCustomInstruction))
+            if (!string.IsNullOrWhiteSpace(_currentCustomInstruction) && !snippetApplied)
             {
                 Console.WriteLine("[VoiceTyper] Applying custom hotkey instruction...");
                 Dispatcher.Invoke(() => _trayIcon.SetStatus("VoiceTyper - Applying custom instruction..."));
@@ -339,10 +366,114 @@ public partial class App : Application
             settings.ProfessionalHotkeyModifiers,
             settings.ProfessionalHotkeyKey);
         _hotkeyService.UpdateCustomHotkeys(settings.CustomHotkeys);
+        _hotkeyService.UpdateTransforms(settings.Transforms);
         _hotkeyService.Enabled = settings.DictationEnabled;
         _audioRecorder.DeviceNumber = settings.MicrophoneDeviceIndex;
         _transcriptionService.LanguageHint = settings.LanguageHint;
         _trayIcon.SetDictationEnabled(settings.DictationEnabled);
+    }
+
+    private async void OnTransformTriggered(TransformHotkeyBinding transform)
+    {
+        Console.WriteLine($"[VoiceTyper] Transform triggered: {transform.Name}");
+        if (_processing)
+        {
+            Console.WriteLine("[VoiceTyper] Transform skipped - already processing");
+            return;
+        }
+
+        _processing = true;
+        try
+        {
+            PlayTransformBeep();
+            Dispatcher.Invoke(() => _trayIcon.SetStatus("VoiceTyper - Reading selection..."));
+            var selectedText = await _textInsertion.GetSelectedTextAsync();
+            if (string.IsNullOrWhiteSpace(selectedText))
+            {
+                Dispatcher.Invoke(() =>
+                    _trayIcon.ShowNotification("VoiceTyper", "No selected text found for transform.", ToolTipIcon.Warning));
+                return;
+            }
+
+            Dispatcher.Invoke(() => _trayIcon.SetStatus("VoiceTyper - Applying transform..."));
+            var rewritten = await _cleanupService.RewriteWithInstructionAsync(selectedText, transform.Prompt);
+            if (string.IsNullOrWhiteSpace(rewritten))
+                rewritten = selectedText;
+
+            await _textInsertion.InsertTextAsync(rewritten);
+            Dispatcher.Invoke(() => _trayIcon.SetStatus("VoiceTyper - Ready"));
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[VoiceTyper] Transform error: {ex}");
+            Dispatcher.Invoke(() =>
+            {
+                var message = ex is HttpRequestException
+                    ? $"Transform network error: {ex.Message}"
+                    : $"Transform error: {ex.Message}";
+                _trayIcon.ShowNotification("VoiceTyper", message, ToolTipIcon.Error);
+                _trayIcon.SetStatus("VoiceTyper - Ready");
+            });
+        }
+        finally
+        {
+            Dispatcher.Invoke(() => _trayIcon.SetStatus("VoiceTyper - Ready"));
+            _processing = false;
+        }
+    }
+
+    private bool TryResolveSnippetReplacement(string transcript, out string replacement)
+    {
+        replacement = transcript;
+        if (_settings.Snippets == null || _settings.Snippets.Count == 0)
+            return false;
+
+        var normalizedTranscript = NormalizeSnippetKey(transcript);
+        if (string.IsNullOrWhiteSpace(normalizedTranscript))
+            return false;
+
+        foreach (var snippet in _settings.Snippets)
+        {
+            if (!snippet.Enabled || string.IsNullOrWhiteSpace(snippet.Trigger) || string.IsNullOrWhiteSpace(snippet.Replacement))
+                continue;
+
+            var normalizedTrigger = NormalizeSnippetKey(snippet.Trigger);
+            if (!string.Equals(normalizedTrigger, normalizedTranscript, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            replacement = snippet.Replacement.Trim();
+            return true;
+        }
+
+        return false;
+    }
+
+    private static string NormalizeSnippetKey(string input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+            return string.Empty;
+
+        var trimmed = input.Trim();
+        trimmed = trimmed.TrimEnd('.', ',', '!', '?', ';', ':', '"', '\'');
+
+        var normalized = new System.Text.StringBuilder(trimmed.Length);
+        var sawWhitespace = false;
+        foreach (var ch in trimmed)
+        {
+            if (char.IsWhiteSpace(ch))
+            {
+                sawWhitespace = true;
+                continue;
+            }
+
+            if (sawWhitespace && normalized.Length > 0)
+                normalized.Append(' ');
+
+            normalized.Append(char.ToLowerInvariant(ch));
+            sawWhitespace = false;
+        }
+
+        return normalized.ToString();
     }
 
     private void ShowSettings()

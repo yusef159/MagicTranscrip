@@ -14,4 +14,6 @@ public class AppSettings
     public string LanguageHint { get; set; } = "";
     public bool DictationEnabled { get; set; } = true;
     public List<CustomHotkeySetting> CustomHotkeys { get; set; } = new();
+    public List<SnippetSetting> Snippets { get; set; } = new();
+    public List<TransformSetting> Transforms { get; set; } = new();
 }

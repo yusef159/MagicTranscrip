@@ -327,10 +327,12 @@
 
             <Style x:Key="VTSidebarListItemStyle" TargetType="ListBoxItem">
                 <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                <Setter Property="Padding" Value="14,10"/>
+                <Setter Property="Padding" Value="14,12"/>
                 <Setter Property="Margin" Value="4,6"/>
-                <Setter Property="MinHeight" Value="40"/>
+                <Setter Property="MinHeight" Value="44"/>
                 <Setter Property="Foreground" Value="{DynamicResource VTPrimaryTextBrush}"/>
+                <Setter Property="FontSize" Value="17"/>
+                <Setter Property="FontWeight" Value="Bold"/>
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="ListBoxItem">

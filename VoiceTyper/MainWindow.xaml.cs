@@ -23,6 +23,8 @@ public partial class MainWindow : Window
     private string _capturedProfessionalModifiers = "";
     private string _capturedProfessionalKey = "";
     private readonly ObservableCollection<CustomHotkeySetting> _customHotkeys = new();
+    private readonly ObservableCollection<SnippetSetting> _snippets = new();
+    private readonly ObservableCollection<TransformSetting> _transforms = new();
     private ResourceDictionary? _activeThemeDictionary;
 
     public event Action<AppSettings>? SettingsSaved;
@@ -35,6 +37,8 @@ public partial class MainWindow : Window
         _settings = settings;
         InitializeModernShell();
         CustomHotkeysItems.ItemsSource = _customHotkeys;
+        SnippetsItems.ItemsSource = _snippets;
+        TransformsItems.ItemsSource = _transforms;
         LoadIntoUi();
         UpdateWordUsage(_wordUsageService.GetSnapshot());
     }
@@ -66,6 +70,30 @@ public partial class MainWindow : Window
                 HotkeyKey = customHotkey.HotkeyKey,
                 Instruction = customHotkey.Instruction,
                 Enabled = customHotkey.Enabled
+            });
+        }
+
+        _snippets.Clear();
+        foreach (var snippet in _settings.Snippets ?? Enumerable.Empty<SnippetSetting>())
+        {
+            _snippets.Add(new SnippetSetting
+            {
+                Trigger = snippet.Trigger,
+                Replacement = snippet.Replacement,
+                Enabled = snippet.Enabled
+            });
+        }
+
+        _transforms.Clear();
+        foreach (var transform in _settings.Transforms ?? Enumerable.Empty<TransformSetting>())
+        {
+            _transforms.Add(new TransformSetting
+            {
+                Name = transform.Name,
+                HotkeyModifiers = transform.HotkeyModifiers,
+                HotkeyKey = transform.HotkeyKey,
+                Prompt = transform.Prompt,
+                Enabled = transform.Enabled
             });
         }
 
@@ -165,6 +193,40 @@ public partial class MainWindow : Window
             _customHotkeys.Remove(hotkey);
     }
 
+    private void AddSnippet_Click(object sender, RoutedEventArgs e)
+    {
+        _snippets.Add(new SnippetSetting
+        {
+            Trigger = "",
+            Replacement = "",
+            Enabled = true
+        });
+    }
+
+    private void RemoveSnippet_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is WpfButton { DataContext: SnippetSetting snippet })
+            _snippets.Remove(snippet);
+    }
+
+    private void AddTransform_Click(object sender, RoutedEventArgs e)
+    {
+        _transforms.Add(new TransformSetting
+        {
+            Name = $"Transform {_transforms.Count + 1}",
+            HotkeyModifiers = "",
+            HotkeyKey = "",
+            Prompt = "",
+            Enabled = true
+        });
+    }
+
+    private void RemoveTransform_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is WpfButton { DataContext: TransformSetting transform })
+            _transforms.Remove(transform);
+    }
+
     private void CustomHotkeyBox_Loaded(object sender, RoutedEventArgs e)
     {
         if (sender is WpfTextBox { DataContext: CustomHotkeySetting hotkey } box)
@@ -195,6 +257,39 @@ public partial class MainWindow : Window
             e,
             value => hotkey.HotkeyModifiers = value,
             value => hotkey.HotkeyKey = value,
+            box);
+    }
+
+    private void TransformHotkeyBox_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is WpfTextBox { DataContext: TransformSetting transform } box)
+            box.Text = FormatHotkey(transform.HotkeyModifiers, transform.HotkeyKey);
+    }
+
+    private void TransformHotkeyBox_GotFocus(object sender, RoutedEventArgs e)
+    {
+        if (sender is WpfTextBox box)
+            box.Text = "Press a key combination...";
+    }
+
+    private void TransformHotkeyBox_LostFocus(object sender, RoutedEventArgs e)
+    {
+        if (sender is WpfTextBox { DataContext: TransformSetting transform } box &&
+            box.Text == "Press a key combination...")
+        {
+            box.Text = FormatHotkey(transform.HotkeyModifiers, transform.HotkeyKey);
+        }
+    }
+
+    private void TransformHotkeyBox_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (sender is not WpfTextBox { DataContext: TransformSetting transform } box)
+            return;
+
+        CaptureHotkey(
+            e,
+            value => transform.HotkeyModifiers = value,
+            value => transform.HotkeyKey = value,
             box);
     }
 
@@ -243,13 +338,15 @@ public partial class MainWindow : Window
 
     private void SetVisibleSection(string sectionKey)
     {
-        if (GeneralSectionPanel == null || CustomCommandsPanel == null || UsagePanel == null || FutureSectionPanel == null)
+        if (GeneralSectionPanel == null || CustomCommandsPanel == null || UsagePanel == null ||
+            SnippetsPanel == null || TransformsPanel == null)
             return;
 
         GeneralSectionPanel.Visibility = sectionKey == "General" ? Visibility.Visible : Visibility.Collapsed;
         CustomCommandsPanel.Visibility = sectionKey == "Custom" ? Visibility.Visible : Visibility.Collapsed;
         UsagePanel.Visibility = sectionKey == "Usage" ? Visibility.Visible : Visibility.Collapsed;
-        FutureSectionPanel.Visibility = sectionKey == "Future" ? Visibility.Visible : Visibility.Collapsed;
+        SnippetsPanel.Visibility = sectionKey == "Snippets" ? Visibility.Visible : Visibility.Collapsed;
+        TransformsPanel.Visibility = sectionKey == "Transforms" ? Visibility.Visible : Visibility.Collapsed;
     }
 
     public void UpdateWordUsage(WordUsageSnapshot snapshot)
@@ -283,6 +380,30 @@ public partial class MainWindow : Window
                 HotkeyKey = hotkey.HotkeyKey,
                 Instruction = hotkey.Instruction.Trim(),
                 Enabled = hotkey.Enabled
+            })
+            .ToList();
+        _settings.Snippets = _snippets
+            .Where(snippet =>
+                !string.IsNullOrWhiteSpace(snippet.Trigger) &&
+                !string.IsNullOrWhiteSpace(snippet.Replacement))
+            .Select(snippet => new SnippetSetting
+            {
+                Trigger = snippet.Trigger.Trim(),
+                Replacement = snippet.Replacement.Trim(),
+                Enabled = snippet.Enabled
+            })
+            .ToList();
+        _settings.Transforms = _transforms
+            .Where(transform =>
+                !string.IsNullOrWhiteSpace(transform.HotkeyKey) &&
+                !string.IsNullOrWhiteSpace(transform.Prompt))
+            .Select(transform => new TransformSetting
+            {
+                Name = transform.Name.Trim(),
+                HotkeyModifiers = transform.HotkeyModifiers,
+                HotkeyKey = transform.HotkeyKey,
+                Prompt = transform.Prompt.Trim(),
+                Enabled = transform.Enabled
             })
             .ToList();
 

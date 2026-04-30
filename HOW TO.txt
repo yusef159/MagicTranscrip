@@ -1,0 +1,3 @@
+dotnet build
+dotnet run 
+dotnet publish -c Release -o C:\Tools\VoiceTyper
