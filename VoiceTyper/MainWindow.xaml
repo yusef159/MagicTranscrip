@@ -1,7 +1,7 @@
 <Window x:Class="VoiceTyper.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="VoiceTyper Settings"
+        Title="MagicTranscript Settings"
         Height="760"
         Width="1120"
         MinHeight="700"
@@ -25,9 +25,9 @@
             </Grid.ColumnDefinitions>
 
             <StackPanel>
-                <TextBlock Text="VoiceTyper"
+                <TextBlock Text="MagicTranscript"
                            Style="{StaticResource VTTitleTextStyle}"/>
-                <TextBlock Text="Modern settings workspace"
+                <TextBlock Text="Write at the speed of thought"
                            Style="{StaticResource VTSecondaryTextStyle}"/>
             </StackPanel>
 

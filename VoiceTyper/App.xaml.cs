@@ -12,6 +12,11 @@ namespace VoiceTyper;
 
 public partial class App : Application
 {
+    private const double SettingsWindowDefaultWidth = 1120;
+    private const double SettingsWindowDefaultHeight = 760;
+    private const double SettingsWindowMinWidth = 980;
+    private const double SettingsWindowMinHeight = 700;
+
     private static readonly object _soundLock = new();
     private static IWavePlayer? _activeSoundOutput;
     private static AudioFileReader? _activeSoundReader;
@@ -480,9 +485,40 @@ public partial class App : Application
     {
         Dispatcher.Invoke(() =>
         {
+            PrepareSettingsWindowForDisplay();
             _settingsWindow.Show();
             _settingsWindow.Activate();
         });
+    }
+
+    private void PrepareSettingsWindowForDisplay()
+    {
+        // Recover from minimized/tiny/off-corner states before showing the settings window.
+        _settingsWindow.WindowState = WindowState.Normal;
+
+        var targetWidth = double.IsNaN(_settingsWindow.Width) || _settingsWindow.Width < SettingsWindowMinWidth
+            ? SettingsWindowDefaultWidth
+            : _settingsWindow.Width;
+        var targetHeight = double.IsNaN(_settingsWindow.Height) || _settingsWindow.Height < SettingsWindowMinHeight
+            ? SettingsWindowDefaultHeight
+            : _settingsWindow.Height;
+
+        // WPF work area values are in DIPs, matching Window sizing/positioning units.
+        var workArea = SystemParameters.WorkArea;
+        targetWidth = Math.Min(targetWidth, workArea.Width);
+        targetHeight = Math.Min(targetHeight, workArea.Height);
+
+        _settingsWindow.Width = targetWidth;
+        _settingsWindow.Height = targetHeight;
+        _settingsWindow.MinWidth = Math.Min(SettingsWindowMinWidth, workArea.Width);
+        _settingsWindow.MinHeight = Math.Min(SettingsWindowMinHeight, workArea.Height);
+        _settingsWindow.WindowStartupLocation = WindowStartupLocation.Manual;
+
+        var left = workArea.Left + Math.Max(0, (workArea.Width - targetWidth) / 2);
+        var top = workArea.Top + Math.Max(0, (workArea.Height - targetHeight) / 2);
+
+        _settingsWindow.Left = left;
+        _settingsWindow.Top = top;
     }
 
     private void ExitApp()
