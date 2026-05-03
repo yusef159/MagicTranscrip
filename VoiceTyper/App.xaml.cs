@@ -22,10 +22,10 @@ public partial class App : Application
     private static AudioFileReader? _activeSoundReader;
     private static bool _transformSoundUnavailable;
     private static bool _defaultSoundUnavailable;
-    private static readonly string _downloadsDirectory =
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
-    private static readonly string _transformSoundPath = Path.Combine(_downloadsDirectory, "transform.mp3");
-    private static readonly string _defaultSoundPath = Path.Combine(_downloadsDirectory, "ping.mp3");
+    private static readonly string _soundsDirectory =
+        Path.Combine(AppContext.BaseDirectory, "Assets", "Sounds");
+    private static readonly string _transformSoundPath = Path.Combine(_soundsDirectory, "transform.mp3");
+    private static readonly string _defaultSoundPath = Path.Combine(_soundsDirectory, "ping.mp3");
 
     private SettingsService _settingsService = null!;
     private AppSettings _settings = null!;
@@ -90,10 +90,10 @@ public partial class App : Application
             Console.WriteLine($"[VoiceTyper] Audio warmup failed: {ex.Message}");
         }
 
-        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("OPENAI_API_KEY")))
+        if (!OpenAiConfiguration.TryGetApiKey(out _))
         {
             _trayIcon.ShowNotification("VoiceTyper",
-                "OPENAI_API_KEY environment variable is not set. Dictation will not work.",
+                "OpenAI API key is not configured. Dictation will not work.",
                 ToolTipIcon.Warning);
         }
         else
@@ -345,7 +345,7 @@ public partial class App : Application
         }
         finally
         {
-            if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("OPENAI_API_KEY")))
+            if (OpenAiConfiguration.TryGetApiKey(out _))
             {
                 // Re-warm next session immediately for near-instant next hotkey press.
                 _ = EnsureRealtimeSessionStartedAsync();

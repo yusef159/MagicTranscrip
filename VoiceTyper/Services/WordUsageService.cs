@@ -7,6 +7,8 @@ namespace VoiceTyper.Services;
 
 public class WordUsageService
 {
+    private const int MaxPromptHistoryEntries = 500;
+
     private static readonly string SettingsDir =
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "VoiceTyper");
 
@@ -32,9 +34,12 @@ public class WordUsageService
     public WordUsageSnapshot TrackTranscript(string transcript)
     {
         var words = CountWords(transcript);
+        var finalText = transcript?.Trim() ?? string.Empty;
         lock (_sync)
         {
             var store = LoadStore();
+            store.PromptHistory ??= new List<PromptHistoryRecord>();
+
             if (words > 0)
             {
                 var today = DateTime.Now.Date;
@@ -44,9 +49,73 @@ public class WordUsageService
 
                 if (store.FirstUsageDate is null || today < store.FirstUsageDate.Value)
                     store.FirstUsageDate = today;
-
-                SaveStore(store);
             }
+
+            if (!string.IsNullOrWhiteSpace(finalText))
+            {
+                store.PromptHistory.Insert(0, new PromptHistoryRecord
+                {
+                    TimestampUtc = DateTime.UtcNow,
+                    Prompt = finalText
+                });
+
+                if (store.PromptHistory.Count > MaxPromptHistoryEntries)
+                    store.PromptHistory = store.PromptHistory.Take(MaxPromptHistoryEntries).ToList();
+            }
+
+            if (words > 0 || !string.IsNullOrWhiteSpace(finalText))
+                SaveStore(store);
+
+            return BuildSnapshot(store);
+        }
+    }
+
+    public WordUsageSnapshot TrackPrompt(string prompt)
+    {
+        if (string.IsNullOrWhiteSpace(prompt))
+            return GetSnapshot();
+
+        lock (_sync)
+        {
+            var store = LoadStore();
+            store.PromptHistory ??= new List<PromptHistoryRecord>();
+            store.PromptHistory.Insert(0, new PromptHistoryRecord
+            {
+                TimestampUtc = DateTime.UtcNow,
+                Prompt = prompt.Trim()
+            });
+
+            if (store.PromptHistory.Count > MaxPromptHistoryEntries)
+                store.PromptHistory = store.PromptHistory.Take(MaxPromptHistoryEntries).ToList();
+
+            SaveStore(store);
+            return BuildSnapshot(store);
+        }
+    }
+
+    public WordUsageSnapshot ClearTranscriptHistory(HistoryClearRange range)
+    {
+        lock (_sync)
+        {
+            var store = LoadStore();
+            store.PromptHistory ??= new List<PromptHistoryRecord>();
+
+            if (store.PromptHistory.Count == 0)
+                return BuildSnapshot(store);
+
+            var now = DateTime.Now;
+            var removedCount = range switch
+            {
+                HistoryClearRange.Today => store.PromptHistory.RemoveAll(entry =>
+                    entry.TimestampUtc.ToLocalTime().Date == now.Date),
+                HistoryClearRange.ThisWeek => RemoveCurrentWeek(store.PromptHistory, now.Date),
+                HistoryClearRange.ThisMonth => RemoveCurrentMonth(store.PromptHistory, now),
+                HistoryClearRange.AllTime => ClearAll(store.PromptHistory),
+                _ => 0
+            };
+
+            if (removedCount > 0)
+                SaveStore(store);
 
             return BuildSnapshot(store);
         }
@@ -62,6 +131,8 @@ public class WordUsageService
 
     private static WordUsageSnapshot BuildSnapshot(WordUsageStore store)
     {
+        store.PromptHistory ??= new List<PromptHistoryRecord>();
+
         var today = DateTime.Now.Date;
         var todayKey = today.ToString("yyyy-MM-dd");
         var monthPrefix = today.ToString("yyyy-MM");
@@ -94,7 +165,16 @@ public class WordUsageService
             TodayWords = todayWords,
             CurrentMonthWords = monthWords,
             OneYearWords = oneYearWords,
-            AverageWordsPerDay = averagePerDay
+            AverageWordsPerDay = averagePerDay,
+            PromptHistory = store.PromptHistory
+                .Where(entry => !string.IsNullOrWhiteSpace(entry.Prompt))
+                .OrderByDescending(entry => entry.TimestampUtc)
+                .Select(entry => new PromptHistoryEntry
+                {
+                    Timestamp = entry.TimestampUtc.ToLocalTime(),
+                    Prompt = entry.Prompt
+                })
+                .ToList()
         };
     }
 
@@ -129,5 +209,47 @@ public class WordUsageService
     {
         public DateTime? FirstUsageDate { get; set; }
         public Dictionary<string, int> DailyWordCounts { get; set; } = new();
+        public List<PromptHistoryRecord> PromptHistory { get; set; } = new();
+    }
+
+    private sealed class PromptHistoryRecord
+    {
+        public DateTime TimestampUtc { get; set; }
+        public string Prompt { get; set; } = string.Empty;
+    }
+
+    private static int ClearAll(List<PromptHistoryRecord> promptHistory)
+    {
+        var count = promptHistory.Count;
+        promptHistory.Clear();
+        return count;
+    }
+
+    private static int RemoveCurrentWeek(List<PromptHistoryRecord> promptHistory, DateTime today)
+    {
+        var weekStart = StartOfWeek(today, DayOfWeek.Monday);
+        var weekEndExclusive = weekStart.AddDays(7);
+        return promptHistory.RemoveAll(entry =>
+        {
+            var local = entry.TimestampUtc.ToLocalTime();
+            return local >= weekStart && local < weekEndExclusive;
+        });
+    }
+
+    private static int RemoveCurrentMonth(List<PromptHistoryRecord> promptHistory, DateTime now)
+    {
+        var monthStart = new DateTime(now.Year, now.Month, 1);
+        var monthEndExclusive = monthStart.AddMonths(1);
+        return promptHistory.RemoveAll(entry =>
+        {
+            var local = entry.TimestampUtc.ToLocalTime();
+            return local >= monthStart && local < monthEndExclusive;
+        });
+    }
+
+    private static DateTime StartOfWeek(DateTime value, DayOfWeek firstDayOfWeek)
+    {
+        var diff = (7 + (value.DayOfWeek - firstDayOfWeek)) % 7;
+        return value.AddDays(-diff).Date;
     }
 }

@@ -1,4 +1,7 @@
 C:\Tools\VoiceTyper\click.wav
+C:\Tools\VoiceTyper\Assets\Sounds\.gitkeep
+C:\Tools\VoiceTyper\Assets\Sounds\ping.mp3
+C:\Tools\VoiceTyper\Assets\Sounds\transform.mp3
 C:\Tools\VoiceTyper\VoiceTyper.exe
 C:\Tools\VoiceTyper\VoiceTyper.dll
 C:\Tools\VoiceTyper\VoiceTyper.deps.json

@@ -238,6 +238,89 @@
                                         </StackPanel>
                                     </Border>
                                 </Grid>
+
+                                <Grid Margin="0,20,0,8"
+                                      HorizontalAlignment="Stretch"
+                                      Width="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Border}}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0"
+                                               Text="Transcript history"
+                                               Style="{StaticResource VTSectionTitleTextStyle}"/>
+                                    <Button Content="Clear"
+                                            Width="72"
+                                            Click="OpenHistoryClearMenu_Click"
+                                            Grid.Column="1"
+                                            HorizontalAlignment="Right">
+                                        <Button.ContextMenu>
+                                            <ContextMenu Background="#1A2238"
+                                                         Foreground="White"
+                                                         BorderBrush="#2F3F63">
+                                                <ContextMenu.Resources>
+                                                    <Style TargetType="{x:Type MenuItem}">
+                                                        <Setter Property="Foreground" Value="White"/>
+                                                        <Setter Property="Background" Value="#1A2238"/>
+                                                    </Style>
+                                                </ContextMenu.Resources>
+                                                <MenuItem Header="Clear today"
+                                                          Click="ClearHistoryToday_Click"/>
+                                                <MenuItem Header="Clear this week"
+                                                          Click="ClearHistoryWeek_Click"/>
+                                                <MenuItem Header="Clear this month"
+                                                          Click="ClearHistoryMonth_Click"/>
+                                                <Separator/>
+                                                <MenuItem Header="Clear all time"
+                                                          Click="ClearHistoryAll_Click"/>
+                                            </ContextMenu>
+                                        </Button.ContextMenu>
+                                    </Button>
+                                </Grid>
+                                <TextBlock x:Name="PromptHistoryEmptyText"
+                                           Text="No transcript history yet."
+                                           Style="{StaticResource VTSecondaryTextStyle}"
+                                           Margin="0,0,0,8"/>
+                                <Border Style="{StaticResource VTInnerPanelStyle}">
+                                    <ScrollViewer MaxHeight="280"
+                                                  VerticalScrollBarVisibility="Auto"
+                                                  HorizontalScrollBarVisibility="Disabled">
+                                        <ItemsControl x:Name="PromptHistoryDaysItems">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <StackPanel Margin="0,0,0,14">
+                                                        <TextBlock Text="{Binding DateLabel}"
+                                                                   FontWeight="SemiBold"
+                                                                   Margin="0,0,0,6"/>
+                                                        <ItemsControl ItemsSource="{Binding Entries}">
+                                                            <ItemsControl.ItemTemplate>
+                                                                <DataTemplate>
+                                                                    <Border Style="{StaticResource VTInnerCardStyle}">
+                                                                        <Grid>
+                                                                            <Grid.ColumnDefinitions>
+                                                                                <ColumnDefinition Width="*"/>
+                                                                                <ColumnDefinition Width="Auto"/>
+                                                                            </Grid.ColumnDefinitions>
+                                                                            <TextBlock Grid.Column="0"
+                                                                                       Text="{Binding Prompt}"
+                                                                                       TextWrapping="Wrap"
+                                                                                       Margin="0,0,12,0"/>
+                                                                            <TextBlock Grid.Column="1"
+                                                                                       Text="{Binding TimeLabel}"
+                                                                                       HorizontalAlignment="Right"
+                                                                                       VerticalAlignment="Top"
+                                                                                       Style="{StaticResource VTSecondaryTextStyle}"/>
+                                                                        </Grid>
+                                                                    </Border>
+                                                                </DataTemplate>
+                                                            </ItemsControl.ItemTemplate>
+                                                        </ItemsControl>
+                                                    </StackPanel>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </ScrollViewer>
+                                </Border>
                             </StackPanel>
                         </Border>
 

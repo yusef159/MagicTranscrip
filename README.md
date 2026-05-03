@@ -54,6 +54,16 @@ dotnet run --project VoiceTyper/VoiceTyper.csproj
 
 The app runs in the system tray. Double-click the tray icon (or use the tray menu) to open settings.
 
+## Build and Publish
+
+Use these commands from the repository root:
+
+```bash
+dotnet build
+dotnet run
+dotnet publish -c Release -o C:\Tools\VoiceTyper
+```
+
 ## Usage
 
 - Hold your configured **Transcript hotkey** to record in normal mode.
@@ -63,9 +73,13 @@ The app runs in the system tray. Double-click the tray icon (or use the tray men
 
 ## Configuration
 
-Settings are saved to:
+Settings are saved per-user on each PC:
 
 - `%AppData%/VoiceTyper/settings.json`
+
+Word usage is also saved per-user:
+
+- `%AppData%/VoiceTyper/word-usage.json`
 
 Key configurable options include:
 
@@ -80,6 +94,15 @@ Key configurable options include:
 - If `OPENAI_API_KEY` is missing, the app starts but dictation will not work.
 - Audio is recorded as temporary WAV files and cleaned up after processing.
 - This app uses `gpt-4o-mini-transcribe` for transcription and `gpt-4o-mini` for text rewriting/cleanup.
+
+## Sound Files
+
+Optional custom sounds are loaded from:
+
+- `VoiceTyper/bin/<Configuration>/net8.0-windows/Assets/Sounds/ping.mp3`
+- `VoiceTyper/bin/<Configuration>/net8.0-windows/Assets/Sounds/transform.mp3`
+
+If these files do not exist, the app falls back to the system beep.
 
 ## Project Structure
 

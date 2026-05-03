@@ -75,3 +75,6 @@ C:\Users\yusef\Documents\Cursor Projects\MagicTranscript\VoiceTyper\bin\Debug\ve
 C:\Users\yusef\Documents\Cursor Projects\MagicTranscript\VoiceTyper\bin\Debug\verify-build\NAudio.WinForms.dll
 C:\Users\yusef\Documents\Cursor Projects\MagicTranscript\VoiceTyper\bin\Debug\verify-build\NAudio.WinMM.dll
 C:\Users\yusef\Documents\Cursor Projects\MagicTranscript\VoiceTyper\bin\Debug\net8.0-windows\VoiceTyper.exe
+C:\Users\yusef\Documents\Cursor Projects\MagicTranscript\VoiceTyper\bin\Debug\net8.0-windows\Assets\Sounds\.gitkeep
+C:\Users\yusef\Documents\Cursor Projects\MagicTranscript\VoiceTyper\bin\Debug\net8.0-windows\Assets\Sounds\ping.mp3
+C:\Users\yusef\Documents\Cursor Projects\MagicTranscript\VoiceTyper\bin\Debug\net8.0-windows\Assets\Sounds\transform.mp3

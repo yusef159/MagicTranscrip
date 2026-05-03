@@ -52,8 +52,7 @@ public class TranscriptCleanupService
 
     private async Task<string> RewriteWithPromptAsync(string rawText, string systemPrompt)
     {
-        var apiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY")
-            ?? throw new InvalidOperationException("OPENAI_API_KEY environment variable is not set.");
+        var apiKey = OpenAiConfiguration.GetApiKeyOrThrow();
 
         _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
 

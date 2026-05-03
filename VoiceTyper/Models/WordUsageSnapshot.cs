@@ -6,4 +6,5 @@ public class WordUsageSnapshot
     public int CurrentMonthWords { get; init; }
     public int OneYearWords { get; init; }
     public int AverageWordsPerDay { get; init; }
+    public IReadOnlyList<PromptHistoryEntry> PromptHistory { get; init; } = Array.Empty<PromptHistoryEntry>();
 }

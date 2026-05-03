@@ -8,5 +8,8 @@
 //------------------------------------------------------------------------------
 
 [assembly: System.Windows.Resources.AssemblyAssociatedContentFileAttribute("click.wav")]
+[assembly: System.Windows.Resources.AssemblyAssociatedContentFileAttribute("assets/sounds/.gitkeep")]
+[assembly: System.Windows.Resources.AssemblyAssociatedContentFileAttribute("assets/sounds/ping.mp3")]
+[assembly: System.Windows.Resources.AssemblyAssociatedContentFileAttribute("assets/sounds/transform.mp3")]
 
 

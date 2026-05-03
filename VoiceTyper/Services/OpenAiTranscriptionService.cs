@@ -32,8 +32,7 @@ public class OpenAiTranscriptionService
 
     public async Task StartSessionAsync()
     {
-        var apiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY")
-            ?? throw new InvalidOperationException("OPENAI_API_KEY environment variable is not set.");
+        var apiKey = OpenAiConfiguration.GetApiKeyOrThrow();
 
         await ResetSessionStateAsync();
 

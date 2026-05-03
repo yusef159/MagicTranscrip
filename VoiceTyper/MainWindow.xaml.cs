@@ -25,6 +25,7 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<CustomHotkeySetting> _customHotkeys = new();
     private readonly ObservableCollection<SnippetSetting> _snippets = new();
     private readonly ObservableCollection<TransformSetting> _transforms = new();
+    private readonly ObservableCollection<PromptHistoryDayViewModel> _promptHistoryDays = new();
     private ResourceDictionary? _activeThemeDictionary;
 
     public event Action<AppSettings>? SettingsSaved;
@@ -39,6 +40,7 @@ public partial class MainWindow : Window
         CustomHotkeysItems.ItemsSource = _customHotkeys;
         SnippetsItems.ItemsSource = _snippets;
         TransformsItems.ItemsSource = _transforms;
+        PromptHistoryDaysItems.ItemsSource = _promptHistoryDays;
         LoadIntoUi();
         UpdateWordUsage(_wordUsageService.GetSnapshot());
     }
@@ -355,12 +357,85 @@ public partial class MainWindow : Window
         MonthWordsText.Text = FormatWordLabel(snapshot.CurrentMonthWords);
         TotalWordsText.Text = FormatWordLabel(snapshot.OneYearWords);
         AverageWordsText.Text = FormatWordLabel(snapshot.AverageWordsPerDay);
+        UpdatePromptHistory(snapshot.PromptHistory);
+    }
+
+    private void UpdatePromptHistory(IReadOnlyList<PromptHistoryEntry> entries)
+    {
+        _promptHistoryDays.Clear();
+        PromptHistoryEmptyText.Visibility = entries.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        if (entries.Count == 0)
+            return;
+
+        foreach (var dayGroup in entries
+                     .OrderByDescending(entry => entry.Timestamp)
+                     .GroupBy(entry => entry.Timestamp.Date))
+        {
+            var day = new PromptHistoryDayViewModel
+            {
+                DateLabel = dayGroup.Key.ToString("dddd, MMM d, yyyy")
+            };
+
+            foreach (var entry in dayGroup.OrderByDescending(item => item.Timestamp))
+            {
+                day.Entries.Add(new PromptHistoryEntryViewModel
+                {
+                    TimeLabel = entry.Timestamp.ToString("h:mm tt"),
+                    Prompt = entry.Prompt
+                });
+            }
+
+            _promptHistoryDays.Add(day);
+        }
     }
 
     private static string FormatWordLabel(int words)
     {
         var suffix = words == 1 ? "word" : "words";
         return $"{words:N0} {suffix}";
+    }
+
+    private void OpenHistoryClearMenu_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not WpfButton { ContextMenu: { } menu } button)
+            return;
+
+        menu.PlacementTarget = button;
+        menu.IsOpen = true;
+    }
+
+    private void ClearHistoryToday_Click(object sender, RoutedEventArgs e)
+    {
+        ClearTranscriptHistory(HistoryClearRange.Today, "today");
+    }
+
+    private void ClearHistoryWeek_Click(object sender, RoutedEventArgs e)
+    {
+        ClearTranscriptHistory(HistoryClearRange.ThisWeek, "this week");
+    }
+
+    private void ClearHistoryMonth_Click(object sender, RoutedEventArgs e)
+    {
+        ClearTranscriptHistory(HistoryClearRange.ThisMonth, "this month");
+    }
+
+    private void ClearHistoryAll_Click(object sender, RoutedEventArgs e)
+    {
+        ClearTranscriptHistory(HistoryClearRange.AllTime, "all time");
+    }
+
+    private void ClearTranscriptHistory(HistoryClearRange range, string label)
+    {
+        var result = System.Windows.MessageBox.Show(
+            $"Clear transcript history for {label}?",
+            "Clear Transcript History",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question);
+
+        if (result != MessageBoxResult.Yes)
+            return;
+
+        UpdateWordUsage(_wordUsageService.ClearTranscriptHistory(range));
     }
 
     private void Save_Click(object sender, RoutedEventArgs e)
@@ -423,5 +498,17 @@ public partial class MainWindow : Window
         e.Cancel = true;
         LoadIntoUi();
         Hide();
+    }
+
+    private sealed class PromptHistoryDayViewModel
+    {
+        public string DateLabel { get; init; } = string.Empty;
+        public ObservableCollection<PromptHistoryEntryViewModel> Entries { get; } = new();
+    }
+
+    private sealed class PromptHistoryEntryViewModel
+    {
+        public string TimeLabel { get; init; } = string.Empty;
+        public string Prompt { get; init; } = string.Empty;
     }
 }
