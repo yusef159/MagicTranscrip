@@ -395,15 +395,6 @@ public partial class MainWindow : Window
         return $"{words:N0} {suffix}";
     }
 
-    private void OpenHistoryClearMenu_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is not WpfButton { ContextMenu: { } menu } button)
-            return;
-
-        menu.PlacementTarget = button;
-        menu.IsOpen = true;
-    }
-
     private void ClearHistoryToday_Click(object sender, RoutedEventArgs e)
     {
         ClearTranscriptHistory(HistoryClearRange.Today, "today");
