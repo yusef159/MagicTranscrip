@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using VoiceTyper.Models;
 using VoiceTyper.Services;
 using KeyEventArgs = System.Windows.Input.KeyEventArgs;
@@ -429,6 +430,27 @@ public partial class MainWindow : Window
         UpdateWordUsage(_wordUsageService.ClearTranscriptHistory(range));
     }
 
+    private async void CopyPromptHistoryEntry_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not WpfButton { DataContext: PromptHistoryEntryViewModel entry })
+            return;
+
+        if (string.IsNullOrWhiteSpace(entry.Prompt))
+            return;
+
+        try
+        {
+            System.Windows.Clipboard.SetText(entry.Prompt);
+            entry.SetCopiedState();
+            await Task.Delay(1200);
+            entry.ClearCopiedState();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[MainWindow] Failed to copy transcript history entry: {ex}");
+        }
+    }
+
     private void Save_Click(object sender, RoutedEventArgs e)
     {
         _settings.HotkeyModifiers = _capturedTranscriptModifiers;
@@ -497,9 +519,49 @@ public partial class MainWindow : Window
         public ObservableCollection<PromptHistoryEntryViewModel> Entries { get; } = new();
     }
 
-    private sealed class PromptHistoryEntryViewModel
+    private sealed class PromptHistoryEntryViewModel : INotifyPropertyChanged
     {
         public string TimeLabel { get; init; } = string.Empty;
         public string Prompt { get; init; } = string.Empty;
+        private string _copyIconGlyph = "\uE8C8";
+        private string _copyTooltip = "Copy transcript";
+
+        public string CopyIconGlyph
+        {
+            get => _copyIconGlyph;
+            private set
+            {
+                if (_copyIconGlyph == value)
+                    return;
+                _copyIconGlyph = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CopyIconGlyph)));
+            }
+        }
+
+        public string CopyTooltip
+        {
+            get => _copyTooltip;
+            private set
+            {
+                if (_copyTooltip == value)
+                    return;
+                _copyTooltip = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CopyTooltip)));
+            }
+        }
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+
+        public void SetCopiedState()
+        {
+            CopyIconGlyph = "\uE73E";
+            CopyTooltip = "Copied!";
+        }
+
+        public void ClearCopiedState()
+        {
+            CopyIconGlyph = "\uE8C8";
+            CopyTooltip = "Copy transcript";
+        }
     }
 }

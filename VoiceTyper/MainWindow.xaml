@@ -329,6 +329,7 @@
                                                                             <Grid.ColumnDefinitions>
                                                                                 <ColumnDefinition Width="*"/>
                                                                                 <ColumnDefinition Width="Auto"/>
+                                                                                <ColumnDefinition Width="Auto"/>
                                                                             </Grid.ColumnDefinitions>
                                                                             <TextBlock Grid.Column="0"
                                                                                        Text="{Binding Prompt}"
@@ -339,6 +340,17 @@
                                                                                        HorizontalAlignment="Right"
                                                                                        VerticalAlignment="Top"
                                                                                        Style="{StaticResource VTSecondaryTextStyle}"/>
+                                                                            <Button Grid.Column="2"
+                                                                                    Width="32"
+                                                                                    Height="28"
+                                                                                    Margin="10,0,0,0"
+                                                                                    VerticalAlignment="Top"
+                                                                                    Click="CopyPromptHistoryEntry_Click"
+                                                                                    ToolTip="{Binding CopyTooltip}">
+                                                                                <TextBlock FontFamily="Segoe MDL2 Assets"
+                                                                                           Text="{Binding CopyIconGlyph}"
+                                                                                           FontSize="14"/>
+                                                                            </Button>
                                                                         </Grid>
                                                                     </Border>
                                                                 </DataTemplate>
