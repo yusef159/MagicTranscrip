@@ -35,13 +35,17 @@ public class HotkeyService : IDisposable
     private const int WM_KEYUP = 0x0101;
     private const int WM_SYSKEYDOWN = 0x0104;
     private const int WM_SYSKEYUP = 0x0105;
+    private const int LLKHF_INJECTED = 0x10;
 
     private IntPtr _hookId = IntPtr.Zero;
     private readonly LowLevelKeyboardProc _hookProc;
     private bool _isRecording;
     private TranscriptMode _activeMode = TranscriptMode.Normal;
     private Key _activeTriggerKey = Key.None;
+    private ModifierKeys _activeTriggerModifiers = ModifierKeys.None;
+    private readonly HashSet<Key> _activePhysicalModifierKeys = new();
     private CustomHotkeyBinding? _activeCustomHotkey;
+    private readonly HashSet<Key> _pendingModifierKeyUpsToSuppress = new();
     private readonly HashSet<Key> _pressedTransformKeys = new();
     private List<CustomHotkeyBinding> _customHotkeys = new();
     private List<TransformHotkeyBinding> _transforms = new();
@@ -127,16 +131,19 @@ public class HotkeyService : IDisposable
         if (nCode >= 0 && Enabled)
         {
             int msg = wParam.ToInt32();
-            var vkCode = Marshal.ReadInt32(lParam);
-            var key = KeyInterop.KeyFromVirtualKey(vkCode);
+            var keyboardData = Marshal.PtrToStructure<KbdLlHookStruct>(lParam);
+            var key = KeyInterop.KeyFromVirtualKey((int)keyboardData.vkCode);
             bool isKeyDown = msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN;
             bool isKeyUp = msg == WM_KEYUP || msg == WM_SYSKEYUP;
+            bool isInjected = (keyboardData.flags & LLKHF_INJECTED) != 0;
 
-            if (isKeyDown && !_isRecording && TryResolveTrigger(key, out var mode, out var customHotkey))
+            if (isKeyDown && !_isRecording && TryResolveTrigger(key, out var mode, out var customHotkey, out var modifiers))
             {
                 _isRecording = true;
                 _activeMode = mode;
                 _activeTriggerKey = key;
+                _activeTriggerModifiers = modifiers;
+                CaptureActivePhysicalModifierKeys(modifiers);
                 _activeCustomHotkey = customHotkey;
                 Console.WriteLine($"[HotkeyService] >>> Recording STARTED ({mode})");
                 if (customHotkey is not null)
@@ -155,6 +162,8 @@ public class HotkeyService : IDisposable
 
             if (isKeyDown && _isRecording && (key == _activeTriggerKey || IsModifierKey(key)))
             {
+                if (IsModifierKey(key))
+                    _activePhysicalModifierKeys.Add(key);
                 return (IntPtr)1;
             }
 
@@ -168,8 +177,13 @@ public class HotkeyService : IDisposable
                     _activeMode = TranscriptMode.Normal;
                     var activeTriggerKey = _activeTriggerKey;
                     _activeTriggerKey = Key.None;
+                    var activeTriggerModifiers = _activeTriggerModifiers;
+                    _activeTriggerModifiers = ModifierKeys.None;
+                    var activePhysicalModifierKeys = _activePhysicalModifierKeys.ToArray();
+                    _activePhysicalModifierKeys.Clear();
                     var activeCustomHotkey = _activeCustomHotkey;
                     _activeCustomHotkey = null;
+                    QueueModifierKeyUpSuppression(activePhysicalModifierKeys, activeTriggerModifiers, key);
                     Console.WriteLine($"[HotkeyService] <<< Recording STOPPED (released: {key}, mode: {activeMode})");
                     if (activeCustomHotkey is not null)
                         EnqueueCallback(() => CustomRecordingStopped?.Invoke(activeCustomHotkey));
@@ -180,6 +194,11 @@ public class HotkeyService : IDisposable
                 }
             }
 
+            if (isKeyUp && !isInjected && _pendingModifierKeyUpsToSuppress.Remove(key))
+            {
+                return (IntPtr)1;
+            }
+
             if (isKeyUp)
                 _pressedTransformKeys.Remove(key);
         }
@@ -187,12 +206,13 @@ public class HotkeyService : IDisposable
         return CallNextHookEx(_hookId, nCode, wParam, lParam);
     }
 
-    private bool TryResolveTrigger(Key key, out TranscriptMode mode, out CustomHotkeyBinding? customHotkey)
+    private bool TryResolveTrigger(Key key, out TranscriptMode mode, out CustomHotkeyBinding? customHotkey, out ModifierKeys modifiers)
     {
         if (key == TriggerKey && AreModifiersPressed(Modifiers))
         {
             mode = TranscriptMode.Normal;
             customHotkey = null;
+            modifiers = Modifiers;
             return true;
         }
 
@@ -200,6 +220,7 @@ public class HotkeyService : IDisposable
         {
             mode = TranscriptMode.Professional;
             customHotkey = null;
+            modifiers = ProfessionalModifiers;
             return true;
         }
 
@@ -209,12 +230,14 @@ public class HotkeyService : IDisposable
             {
                 mode = TranscriptMode.Normal;
                 customHotkey = binding;
+                modifiers = binding.Modifiers;
                 return true;
             }
         }
 
         mode = TranscriptMode.Normal;
         customHotkey = null;
+        modifiers = ModifierKeys.None;
         return false;
     }
 
@@ -293,6 +316,80 @@ public class HotkeyService : IDisposable
     private static bool IsKeyDown(int vkCode) =>
         (GetAsyncKeyState(vkCode) & 0x8000) != 0;
 
+    private void CaptureActivePhysicalModifierKeys(ModifierKeys modifiers)
+    {
+        _activePhysicalModifierKeys.Clear();
+
+        if (modifiers.HasFlag(ModifierKeys.Control))
+        {
+            if (IsKeyDown(0xA2))
+                _activePhysicalModifierKeys.Add(Key.LeftCtrl);
+            if (IsKeyDown(0xA3))
+                _activePhysicalModifierKeys.Add(Key.RightCtrl);
+        }
+
+        if (modifiers.HasFlag(ModifierKeys.Alt))
+        {
+            if (IsKeyDown(0xA4))
+                _activePhysicalModifierKeys.Add(Key.LeftAlt);
+            if (IsKeyDown(0xA5))
+                _activePhysicalModifierKeys.Add(Key.RightAlt);
+        }
+
+        if (modifiers.HasFlag(ModifierKeys.Shift))
+        {
+            if (IsKeyDown(0xA0))
+                _activePhysicalModifierKeys.Add(Key.LeftShift);
+            if (IsKeyDown(0xA1))
+                _activePhysicalModifierKeys.Add(Key.RightShift);
+        }
+
+        if (modifiers.HasFlag(ModifierKeys.Windows))
+        {
+            if (IsKeyDown(0x5B))
+                _activePhysicalModifierKeys.Add(Key.LWin);
+            if (IsKeyDown(0x5C))
+                _activePhysicalModifierKeys.Add(Key.RWin);
+        }
+    }
+
+    private void QueueModifierKeyUpSuppression(IEnumerable<Key> activePhysicalModifierKeys, ModifierKeys modifiers, Key releaseKey)
+    {
+        foreach (var key in activePhysicalModifierKeys.Where(IsModifierKey))
+            _pendingModifierKeyUpsToSuppress.Add(key);
+
+        // Fallback: if no physical side was captured, keep previous behavior for reliability.
+        if (_pendingModifierKeyUpsToSuppress.Count == 0)
+        {
+            if (modifiers.HasFlag(ModifierKeys.Control))
+            {
+                _pendingModifierKeyUpsToSuppress.Add(Key.LeftCtrl);
+                _pendingModifierKeyUpsToSuppress.Add(Key.RightCtrl);
+            }
+
+            if (modifiers.HasFlag(ModifierKeys.Alt))
+            {
+                _pendingModifierKeyUpsToSuppress.Add(Key.LeftAlt);
+                _pendingModifierKeyUpsToSuppress.Add(Key.RightAlt);
+            }
+
+            if (modifiers.HasFlag(ModifierKeys.Shift))
+            {
+                _pendingModifierKeyUpsToSuppress.Add(Key.LeftShift);
+                _pendingModifierKeyUpsToSuppress.Add(Key.RightShift);
+            }
+
+            if (modifiers.HasFlag(ModifierKeys.Windows))
+            {
+                _pendingModifierKeyUpsToSuppress.Add(Key.LWin);
+                _pendingModifierKeyUpsToSuppress.Add(Key.RWin);
+            }
+        }
+
+        if (IsModifierKey(releaseKey))
+            _pendingModifierKeyUpsToSuppress.Remove(releaseKey);
+    }
+
     private void EnqueueCallback(Action callback)
     {
         if (!_callbackQueue.IsAddingCompleted)
@@ -327,6 +424,16 @@ public class HotkeyService : IDisposable
     }
 
     private delegate IntPtr LowLevelKeyboardProc(int nCode, IntPtr wParam, IntPtr lParam);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct KbdLlHookStruct
+    {
+        public uint vkCode;
+        public uint scanCode;
+        public uint flags;
+        public uint time;
+        public UIntPtr dwExtraInfo;
+    }
 
     [DllImport("user32.dll", SetLastError = true)]
     private static extern IntPtr SetWindowsHookEx(int idHook, LowLevelKeyboardProc lpfn, IntPtr hMod, uint dwThreadId);
