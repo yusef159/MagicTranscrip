@@ -39,7 +39,6 @@ public class OpenAiTranscriptionService
         _sessionCts = new CancellationTokenSource();
         _socket = new ClientWebSocket();
         _socket.Options.SetRequestHeader("Authorization", $"Bearer {apiKey}");
-        _socket.Options.SetRequestHeader("OpenAI-Beta", "realtime=v1");
         await _socket.ConnectAsync(new Uri(RealtimeUrl), _sessionCts.Token);
 
         _senderTask = Task.Run(() => SenderLoopAsync(_sessionCts.Token));
@@ -85,26 +84,36 @@ public class OpenAiTranscriptionService
 
     private string BuildSessionUpdateEvent()
     {
-        var session = new Dictionary<string, object?>
+        var transcription = new Dictionary<string, object?>
         {
-            ["input_audio_format"] = "pcm16",
-            ["input_audio_transcription"] = new Dictionary<string, object?>
-            {
-                ["model"] = RealtimeTranscriptionModel
-            },
-            // Manual commit at key-up; server-side VAD disabled.
-            ["turn_detection"] = null
+            ["model"] = RealtimeTranscriptionModel
         };
 
         if (!string.IsNullOrWhiteSpace(LanguageHint))
-        {
-            var transcription = (Dictionary<string, object?>)session["input_audio_transcription"]!;
             transcription["language"] = LanguageHint;
-        }
+
+        var session = new Dictionary<string, object?>
+        {
+            ["type"] = "transcription",
+            ["audio"] = new Dictionary<string, object?>
+            {
+                ["input"] = new Dictionary<string, object?>
+                {
+                    ["format"] = new Dictionary<string, object?>
+                    {
+                        ["type"] = "audio/pcm",
+                        ["rate"] = 24000
+                    },
+                    ["transcription"] = transcription,
+                    // Manual commit at key-up; server-side VAD disabled.
+                    ["turn_detection"] = null
+                }
+            }
+        };
 
         return JsonSerializer.Serialize(new
         {
-            type = "transcription_session.update",
+            type = "session.update",
             session
         });
     }
